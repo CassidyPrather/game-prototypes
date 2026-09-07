@@ -85,7 +85,7 @@ something, it goes in `InputFrame`.
 
 The sim has two output channels, and sound uses the second one exactly the way
 rendering uses the first: the getters (`player`, `stompers`, `walls`,
-`sparks`, `music`) for what to draw, `Sim::cues()` for what to play. A `Cue`
+`strikes`, `walls`, `spin`, `gates`, `music`) for what to draw, `Sim::cues()` for what to play. A `Cue`
 says what happened and how hard, never what it should sound like. Cues live
 for one `advance()` and are cleared by the next.
 
