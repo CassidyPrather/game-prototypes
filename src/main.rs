@@ -415,8 +415,9 @@ fn draw_walls(sim: &Sim, view: &View, palette: &Palette) {
     for k in first_k..=last_k {
         let x = sim::wall_x(k);
         let solidity = sim.walls()[sim::lane_of_wall(k)];
+        let offset = sim::wall_gap_offset(k);
         for m in first_m..=last_m {
-            let top = (m as f32).mul_add(WALL_PERIOD_Y, WALL_GAP * 0.5);
+            let top = (m as f32).mul_add(WALL_PERIOD_Y, WALL_GAP * 0.5) + offset;
             // A faint guide so the lanes are legible before any bass plays.
             view.line(
                 view.world(Vec2::new(x, top)),

@@ -21,18 +21,18 @@ of note events drives both the world and the speakers.
 
 **The motif sets the rules.**
 
-| Motif | Feel | Stompers | You |
-| --- | --- | --- | --- |
-| Wander | C major, 110 bpm | Drift a step on each kick, turn on each snare | Normal speed |
-| Pursuit | A minor, 132 bpm | Lunge at you on each kick, harder | A little faster |
-| Lullaby | F major, 84 bpm | Asleep and harmless, whatever the drums do | Slower |
+| Motif | Feel | Stompers | Walls | You |
+| --- | --- | --- | --- | --- |
+| Wander | C major, 110 bpm | Drift a step on each kick, turn on each snare, half the time toward you | Sink in a beat and a half | Normal speed |
+| Pursuit | A minor, 132 bpm | Lunge at you on every kick and snare, harder | Linger for two and a half beats | A little faster |
+| Lullaby | F major, 84 bpm | Asleep where they stand, still solid, still sore to touch | Stay up for most of a bar | Slower |
 
 **Each instrument moves one thing, only while it sounds.**
 
 | Instrument | What its notes do |
 | --- | --- |
 | Drums | Kicks step the stompers; snares turn them |
-| Bass | Each note raises every wall in the lane of its pitch class. Walls stand across the way home and sink again over a beat and a half, so the bass line decides when the road is open |
+| Bass | Each note raises every wall in the lane of its pitch class. Walls stand across the way home with a gap every so often, and every other wall's gaps sit half a period off, so the road zigzags and the bass line decides when it is open |
 | Lead | Each note drops a spark ahead of you, further ahead the later in the bar, further to the side the further from the middle of the tune, so the melody lays a trail toward home |
 | Pad | While it holds, nearby sparks are pulled toward you |
 
@@ -47,8 +47,14 @@ the walls sink out of the road. It spends a pool that refills only while
 you are not spending it. Run it dry and the instrument comes back on its
 own, and the pool has to refill part way before it will take again.
 
-**Sparks heal. Stompers hurt.** You have three hearts. Five sparks restore
-a lost one. Lose them all and the music stops; reach home and it resolves.
+**Sparks heal. Stompers hurt.** You have three hearts. Eight sparks restore
+a lost one. Stompers more often than not come back on the road ahead of
+you. Lose every heart and the music stops; reach home and it resolves.
+
+It is meant to be hard. Two tests keep it honest: a player who only holds
+east loses on every seed tried, and a bot that reads the road — heads for
+the next gap, sidesteps stompers, hushes the drums when they close in —
+gets home on some seeds but not all.
 
 There is no text in the game. The HUD is built from the same shapes the
 world is made of — a stomper stands for the drums that move it, a wall for

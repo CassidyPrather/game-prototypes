@@ -9,10 +9,12 @@
 //! What each part of the music does:
 //!
 //! - The **motif** (which theme is playing) sets the rules. *Wander*:
-//!   stompers drift on the beat and re-aim on every snare. *Pursuit*:
-//!   stompers lunge at the player on every kick, harder, and the player is
-//!   a little quicker. *Lullaby*: stompers sleep and are harmless, and the
-//!   player slows.
+//!   stompers drift on the beat and turn on every snare, half the time
+//!   toward the player. *Pursuit*: stompers lunge at the player on every
+//!   kick and snare, harder, walls linger, and the player is a little
+//!   quicker. *Lullaby*: stompers sleep where they stand — still solid,
+//!   still sore to touch — walls stay up for most of a bar, and the player
+//!   slows.
 //! - Each **instrument** animates one thing, and only while it is sounding.
 //!   Kicks move the stompers. Bass notes raise every wall in the lane of
 //!   the note's pitch class — walls run north-south across the way home, so
@@ -45,7 +47,7 @@ pub const TICK_DT: f32 = 1.0 / 60.0;
 const MAX_FRAME_DT: f32 = 0.25;
 
 /// How far east home is from the start.
-pub const HOME_DISTANCE: f32 = 8000.0;
+pub const HOME_DISTANCE: f32 = 14000.0;
 
 /// Where home is.
 pub const HOME: Vec2 = Vec2::new(HOME_DISTANCE, 0.0);
@@ -63,13 +65,13 @@ pub const STOMPER_RADIUS: f32 = 15.0;
 pub const SPARK_RADIUS: f32 = 6.0;
 
 /// How many stompers travel with the player.
-pub const STOMPER_COUNT: usize = 5;
+pub const STOMPER_COUNT: usize = 7;
 
 /// Hearts the player starts with, and the most it can hold.
 pub const MAX_HEARTS: u32 = 3;
 
 /// Sparks it takes to restore a heart.
-pub const SPARKS_PER_HEART: u32 = 5;
+pub const SPARKS_PER_HEART: u32 = 8;
 
 /// Walls stand every this far along the way home.
 pub const WALL_SPACING: f32 = 200.0;
@@ -78,11 +80,12 @@ pub const WALL_SPACING: f32 = 200.0;
 pub const WALL_HALF_W: f32 = 14.0;
 
 /// Walls repeat north-south with this period, broken by a gap each time, so
-/// there is always a way through if you look for it.
-pub const WALL_PERIOD_Y: f32 = 320.0;
+/// there is always a way through if you look for it. Every other wall's
+/// gaps sit half a period off, so the way through zigzags.
+pub const WALL_PERIOD_Y: f32 = 480.0;
 
 /// Length of the gap in each wall period.
-pub const WALL_GAP: f32 = 90.0;
+pub const WALL_GAP: f32 = 64.0;
 
 /// How many lanes walls cycle through. Bass pitch classes map onto lanes.
 pub const WALL_LANES: usize = 4;
@@ -91,14 +94,14 @@ pub const WALL_LANES: usize = 4;
 pub const MAGNET_RADIUS: f32 = 160.0;
 
 /// How much of the hush pool one hushed instrument spends per second.
-pub const HUSH_DRAIN: f32 = 0.35;
+pub const HUSH_DRAIN: f32 = 0.45;
 
 /// How much of the hush pool refills per second while nothing is hushed.
-pub const HUSH_RECHARGE: f32 = 0.2;
+pub const HUSH_RECHARGE: f32 = 0.15;
 
 /// Once the pool runs dry it must refill to this before it can be spent
 /// again, so a held key pulses rather than flickers.
-pub const HUSH_RELOCK: f32 = 0.4;
+pub const HUSH_RELOCK: f32 = 0.5;
 
 /// How hard the pad pulls.
 const MAGNET_ACCEL: f32 = 900.0;
@@ -130,7 +133,7 @@ const PLAYER_SPEED: f32 = 250.0;
 const PLAYER_ACCEL: f32 = 0.25;
 
 /// Seconds of invulnerability after a hit.
-const INVULN_SECS: f32 = 1.5;
+const INVULN_SECS: f32 = 1.0;
 
 /// Knockback speed on a hit.
 const KNOCKBACK: f32 = 420.0;
@@ -138,8 +141,14 @@ const KNOCKBACK: f32 = 420.0;
 /// Fraction of velocity a stomper keeps per tick.
 const STOMPER_DAMPING: f32 = 0.93;
 
-/// Beats a wall takes to sink after its last note.
-const WALL_SINK_BEATS: f32 = 1.5;
+/// Stompers respawn ahead of the player, on the road home, this often.
+const AMBUSH_CHANCE: f32 = 0.7;
+
+/// How far off due east an ambush may spawn, in radians.
+const AMBUSH_SPREAD: f32 = 1.0;
+
+/// Chance a wandering stomper's snare turn faces the player.
+const WANDER_NOTICE: f32 = 0.5;
 
 /// A wall blocks once its solidity is over this.
 const WALL_SOLID: f32 = 0.35;
@@ -670,8 +679,9 @@ impl Sim {
         }
     }
 
-    /// Kicks move the stompers; snares re-aim them; hats are just heard.
-    /// Nothing moves during the lullaby, whatever the drums do.
+    /// Kicks move the stompers; snares re-aim them (and, in pursuit, drive
+    /// them on); hats are just heard. Nothing moves during the lullaby,
+    /// whatever the drums do.
     fn drum_hit(&mut self, pitch: u8) {
         let motif = self.motif();
         if motif == Motif::Lullaby {
@@ -680,18 +690,24 @@ impl Sim {
         let player_pos = self.player.body.pos;
         for stomper in &mut self.stompers {
             match (motif, pitch) {
-                (Motif::Pursuit, song::KICK) => {
+                (Motif::Pursuit, song::KICK | song::SNARE) => {
                     let toward = (player_pos - stomper.body.pos).normalized();
                     stomper.heading = toward;
-                    stomper.body.vel += toward * lunge(motif);
-                    stomper.pulse = 1.0;
+                    let strength = if pitch == song::KICK { 1.0 } else { 0.5 };
+                    stomper.body.vel += toward * (lunge(motif) * strength);
+                    stomper.pulse = strength;
                 }
                 (Motif::Wander, song::KICK) => {
                     stomper.body.vel += stomper.heading * lunge(motif);
                     stomper.pulse = 1.0;
                 }
                 (Motif::Wander, song::SNARE) => {
-                    stomper.heading = Vec2::from_angle(self.rng.f32() * std::f32::consts::TAU);
+                    // Half the time it looks your way.
+                    stomper.heading = if self.rng.f32() < WANDER_NOTICE {
+                        (player_pos - stomper.body.pos).normalized()
+                    } else {
+                        Vec2::from_angle(self.rng.f32() * std::f32::consts::TAU)
+                    };
                     stomper.pulse = 0.6;
                 }
                 _ => {}
@@ -775,7 +791,8 @@ impl Sim {
     }
 
     fn sink_walls(&mut self) {
-        let rate = 1.0 / (WALL_SINK_BEATS * self.motif().beat_secs());
+        let motif = self.motif();
+        let rate = 1.0 / (sink_beats(motif) * motif.beat_secs());
         for wall in &mut self.walls {
             *wall = rate.mul_add(-TICK_DT, *wall).max(0.0);
         }
@@ -822,10 +839,10 @@ impl Sim {
         }
     }
 
-    /// Stompers hurt on contact, except while the lullaby has them asleep
-    /// and during the grace period after a hit.
+    /// Stompers hurt on contact, asleep or not, except during the grace
+    /// period after a hit.
     fn take_hits(&mut self) {
-        if self.motif() == Motif::Lullaby || self.player.invuln > 0.0 {
+        if self.player.invuln > 0.0 {
             return;
         }
         let reach = PLAYER_RADIUS + STOMPER_RADIUS;
@@ -901,11 +918,32 @@ pub fn wall_is_solid(solidity: f32) -> bool {
     solidity > WALL_SOLID
 }
 
-/// Whether a wall stands at `y`, or `y` falls in a gap.
+/// How far the gaps in wall `k` sit from those of an even wall: every
+/// other wall's gaps are half a period off, so the road zigzags.
 #[must_use]
-pub fn wall_stands_at(y: f32) -> bool {
-    let yy = y.rem_euclid(WALL_PERIOD_Y);
+pub fn wall_gap_offset(k: i32) -> f32 {
+    if k.rem_euclid(2) == 0 {
+        0.0
+    } else {
+        WALL_PERIOD_Y * 0.5
+    }
+}
+
+/// Whether wall `k` stands at `y`, or `y` falls in one of its gaps.
+#[must_use]
+pub fn wall_stands_at(k: i32, y: f32) -> bool {
+    let yy = (y - wall_gap_offset(k)).rem_euclid(WALL_PERIOD_Y);
     yy > WALL_GAP * 0.5 && yy < WALL_GAP.mul_add(-0.5, WALL_PERIOD_Y)
+}
+
+/// Beats a wall takes to sink after its last note. The chase and the
+/// lullaby both leave them standing longer: one to trap, one to linger.
+const fn sink_beats(motif: Motif) -> f32 {
+    match motif {
+        Motif::Wander => 1.5,
+        Motif::Pursuit => 2.5,
+        Motif::Lullaby => 4.0,
+    }
 }
 
 /// Player speed per motif, as a fraction of [`PLAYER_SPEED`].
@@ -920,18 +958,23 @@ const fn speed_scale(motif: Motif) -> f32 {
 /// Speed a kick adds to a stomper.
 const fn lunge(motif: Motif) -> f32 {
     match motif {
-        Motif::Wander => 260.0,
-        Motif::Pursuit => 380.0,
+        Motif::Wander => 300.0,
+        Motif::Pursuit => 460.0,
         Motif::Lullaby => 0.0,
     }
 }
 
 /// A stomper somewhere around `near`, far enough away to be fair, and not
-/// inside a wall, which would shove it the moment the bass played.
+/// inside a wall, which would shove it the moment the bass played. More
+/// often than not it waits on the road ahead.
 fn spawn_stomper(rng: &mut fastrand::Rng, near: Vec2) -> Stomper {
     let mut pos = near;
     for _ in 0..16 {
-        let angle = rng.f32() * std::f32::consts::TAU;
+        let angle = if rng.f32() < AMBUSH_CHANCE {
+            rng.f32().mul_add(2.0, -1.0) * AMBUSH_SPREAD
+        } else {
+            rng.f32() * std::f32::consts::TAU
+        };
         let radius = rng.f32().mul_add(RESPAWN_SPAN, RESPAWN_MIN);
         pos = near + Vec2::from_angle(angle) * radius;
         if !inside_wall(pos, STOMPER_RADIUS) {
@@ -948,7 +991,7 @@ fn spawn_stomper(rng: &mut fastrand::Rng, near: Vec2) -> Stomper {
 /// Whether a circle overlaps where a wall stands, up or not.
 fn inside_wall(pos: Vec2, radius: f32) -> bool {
     let k = (pos.x / WALL_SPACING).round() as i32;
-    let in_band = wall_stands_at(pos.y - radius) || wall_stands_at(pos.y + radius);
+    let in_band = wall_stands_at(k, pos.y - radius) || wall_stands_at(k, pos.y + radius);
     in_band && (pos.x - wall_x(k)).abs() < WALL_HALF_W + radius
 }
 
@@ -961,7 +1004,7 @@ fn push_out(walls: &[f32; WALL_LANES], body: &mut Body, radius: f32) {
         return;
     }
     // Rounded to the body's reach, so it cannot clip a wall's end.
-    let in_wall = wall_stands_at(body.pos.y - radius) || wall_stands_at(body.pos.y + radius);
+    let in_wall = wall_stands_at(k, body.pos.y - radius) || wall_stands_at(k, body.pos.y + radius);
     if !in_wall {
         return;
     }
@@ -1049,8 +1092,10 @@ mod tests {
             .collect()
     }
 
-    /// A y in the middle of a wall segment, where walls stand.
-    const WALLED_Y: f32 = WALL_PERIOD_Y * 0.5;
+    /// Where wall 1 stands, and where one of its gaps is. Wall 1 is odd,
+    /// so its gaps sit half a period off the even walls'.
+    const WALLED_Y: f32 = 0.0;
+    const GAP_Y: f32 = WALL_PERIOD_Y * 0.5;
 
     #[test]
     fn title_screen_is_silent_and_still() {
@@ -1203,7 +1248,7 @@ mod tests {
         );
 
         // Hush the bass for a couple of beats and every wall sinks.
-        let secs = sim.motif().beat_secs() * (WALL_SINK_BEATS + 0.5);
+        let secs = sim.motif().beat_secs() * (sink_beats(sim.motif()) + 0.5);
         assert!(secs < 1.0 / HUSH_DRAIN, "pool would run dry mid-test");
         run(&mut sim, secs, &holding(Instrument::Bass), |_| true);
         assert!(
@@ -1243,11 +1288,98 @@ mod tests {
 
     #[test]
     fn wall_gaps_let_the_player_through() {
-        // The gap sits astride each period boundary.
-        assert!(drive_at_wall(0.0, 1.0) > wall_x(1));
-        assert!(drive_at_wall(WALL_PERIOD_Y * 3.0, 1.0) > wall_x(1));
-        assert!(!wall_stands_at(0.0));
-        assert!(wall_stands_at(WALLED_Y));
+        assert!(!wall_stands_at(1, GAP_Y));
+        assert!(wall_stands_at(1, WALLED_Y));
+        assert!(drive_at_wall(GAP_Y, 1.0) > wall_x(1));
+        assert!(drive_at_wall(WALL_PERIOD_Y.mul_add(3.0, GAP_Y), 1.0) > wall_x(1));
+    }
+
+    #[test]
+    fn neighbouring_walls_stagger_their_gaps() {
+        // A gap in one wall faces the middle of a segment in the next, so
+        // no straight line east threads every wall.
+        for k in -4..4 {
+            assert_ne!(wall_stands_at(k, GAP_Y), wall_stands_at(k + 1, GAP_Y));
+            assert_ne!(wall_stands_at(k, WALLED_Y), wall_stands_at(k + 1, WALLED_Y));
+        }
+    }
+
+    /// A bot that reads the road: heads for the next wall's nearest gap,
+    /// sidesteps close stompers, and hushes the drums when they are near.
+    fn careful(sim: &Sim) -> InputFrame {
+        let me = sim.player().body.pos;
+        let k = (me.x / WALL_SPACING).floor() as i32 + 1;
+        // Gap centres of the next wall sit at offset + m * period.
+        let offset = wall_gap_offset(k);
+        let m = ((me.y - offset) / WALL_PERIOD_Y).round();
+        let gap_y = m.mul_add(WALL_PERIOD_Y, offset);
+        let mut dir = if me.x > HOME.x - 700.0 {
+            // Past the last wall that matters: go straight for the door.
+            (HOME - me).normalized()
+        } else {
+            Vec2::new(1.0, (gap_y - me.y).clamp(-60.0, 60.0) / 60.0)
+        };
+        let nearest = sim
+            .stompers()
+            .iter()
+            .map(|s| s.body.pos - me)
+            .min_by(|a, b| a.length().total_cmp(&b.length()))
+            .unwrap();
+        let threat = nearest.length();
+        if threat < 140.0 {
+            let away = -nearest.normalized();
+            dir += away * 1.5;
+        }
+        let mut input = InputFrame {
+            move_dir: dir.normalized(),
+            ..InputFrame::default()
+        };
+        input.hold_layer[Instrument::Drums.index()] = threat < 260.0 && !sim.hush_dry();
+        input
+    }
+
+    #[test]
+    fn a_careful_player_can_still_get_home() {
+        let mut wins = 0;
+        for seed in [1_u64, 2, 3, 5, 8, 13, 21, 34] {
+            let mut sim = playing(seed);
+            for _ in 0..(60 * 240) {
+                let input = careful(&sim);
+                sim.advance(TICK_DT, &input);
+                if sim.phase() != Phase::Playing {
+                    break;
+                }
+            }
+            println!(
+                "seed {seed}: {:?} at {:.0}% with {} hearts",
+                sim.phase(),
+                sim.progress() * 100.0,
+                sim.hearts()
+            );
+            wins += u32::from(sim.phase() == Phase::Won);
+        }
+        assert!(wins >= 3, "only {wins} of 8 careful runs got home");
+    }
+
+    #[test]
+    fn holding_right_alone_does_not_get_you_home() {
+        // The road has to be read, not run. A player who only ever holds
+        // east loses their hearts before home on every seed tried.
+        for seed in [1_u64, 2, 3, 5, 8] {
+            let mut sim = playing(seed);
+            for _ in 0..(60 * 180) {
+                sim.advance(TICK_DT, &moving(1.0, 0.0));
+                if sim.phase() != Phase::Playing {
+                    break;
+                }
+            }
+            assert_eq!(
+                sim.phase(),
+                Phase::Over,
+                "seed {seed}: holding right got {:.0}% of the way",
+                sim.progress() * 100.0
+            );
+        }
     }
 
     #[test]
@@ -1281,14 +1413,14 @@ mod tests {
                 "a stomper moved during the lullaby"
             );
         }
-        // And they are harmless: park the player on one.
+        // Asleep is not gone: walking into one still hurts.
         sim.player.body = Body::at(sim.stompers()[0].body.pos);
         sim.player.invuln = 0.0;
         let hits = run(&mut sim, 0.5, &InputFrame::default(), |c| {
             matches!(c, Cue::Hit { .. })
         });
-        assert_eq!(hits, 0);
-        assert_eq!(sim.hearts(), MAX_HEARTS);
+        assert_eq!(hits, 1);
+        assert_eq!(sim.hearts(), MAX_HEARTS - 1);
     }
 
     #[test]
