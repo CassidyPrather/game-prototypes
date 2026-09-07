@@ -47,6 +47,12 @@ jobs:
       - name: Run tests
         run: cargo test --all-features
 
+      - name: Audio headroom
+        # The mix tests render the whole song through the same cue-to-voice
+        # policy the frontend uses and fail if the sum ever nears full scale.
+        # Run them again on their own so the measured peaks land in the log.
+        run: cargo test --lib mix:: -- --nocapture
+
       - name: Install cargo-audit
         uses: taiki-e/install-action@cargo-audit
 

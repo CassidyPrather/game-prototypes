@@ -1,6 +1,6 @@
-//! The arena: pure, deterministic, and macroquad-free.
+//! The world: pure, deterministic, and macroquad-free.
 //!
-//! This is a small survival game whose rules are set by the music. The
+//! A journey home, ruled by the music. Home lies far to the east. The
 //! [`song::Sequencer`] walks the score and hands back [`song::Event`]s; this
 //! module turns them into behaviour and, unchanged, into [`Cue`]s for the
 //! frontend to play. The two consumers see the same feed, which is what
@@ -10,38 +10,48 @@
 //!
 //! - The **motif** (which theme is playing) sets the rules. *Wander*:
 //!   stompers drift on the beat and re-aim on every snare. *Pursuit*:
-//!   stompers lunge at the player on every kick, faster, and sparks are
-//!   worth double. *Lullaby*: stompers sleep and are harmless, the player
-//!   slows, sparks are rare but worth triple.
+//!   stompers lunge at the player on every kick, harder, and the player is
+//!   a little quicker. *Lullaby*: stompers sleep and are harmless, and the
+//!   player slows.
 //! - Each **instrument** animates one thing, and only while it is sounding.
-//!   Kicks move the stompers. Bass notes raise a wall in the lane of the
-//!   note's pitch class. Lead notes spawn sparks, placed by pitch and by
-//!   position in the bar, so the melody draws them. The pad pulls nearby
-//!   sparks toward the player.
-//! - A spark is worth the number of instruments sounding, times the motif's
-//!   multiplier: muting layers makes the arena safer and poorer.
+//!   Kicks move the stompers. Bass notes raise every wall in the lane of
+//!   the note's pitch class — walls run north-south across the way home, so
+//!   the bass line decides when the road is open. Lead notes drop sparks
+//!   ahead of the player, placed by pitch and by position in the bar, so the
+//!   melody lays a trail toward home. The pad pulls nearby sparks in.
+//! - Sparks heal: a few of them restore a lost heart. Stompers hurt. Lose
+//!   every heart and the music stops; reach home and it resolves.
+//! - The player can **hush** an instrument by holding its key, which
+//!   silences it — and so stops whatever it drives — for as long as a
+//!   slowly refilling pool lasts. Hush the drums and the stompers freeze;
+//!   hush the bass and the road opens; but nothing new is happening while
+//!   you do, and the pool runs dry.
 //!
-//! Time is fixed-step with an accumulator, as in the template: the frontend's
-//! only way in is an [`InputFrame`], and its only way out is the getters plus
-//! [`Sim::alpha`] for interpolation.
+//! The world is unbounded. Walls repeat forever on a grid, stompers respawn
+//! around the player as it travels, and the camera is the frontend's
+//! problem. Time is fixed-step with an accumulator, as in the template: the
+//! frontend's only way in is an [`InputFrame`], and its only way out is the
+//! getters plus [`Sim::alpha`] for interpolation.
 
-use std::ops::{Add, AddAssign, Mul, MulAssign, Sub};
+use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub};
 
 use crate::song::{self, Chord, Event, Instrument, Motif, Position, Sequencer};
 
 /// Length of one simulation step. Ticks are always exactly this long.
 pub const TICK_DT: f32 = 1.0 / 60.0;
 
-/// Logical world width. The renderer scales this onto the window, so the sim
-/// never learns what a pixel is.
-pub const WORLD_W: f32 = 800.0;
-
-/// Logical world height.
-pub const WORLD_H: f32 = 600.0;
-
 /// Longest frame the accumulator will bank, so a backgrounded tab does not
 /// come back and try to catch up all at once.
 const MAX_FRAME_DT: f32 = 0.25;
+
+/// How far east home is from the start.
+pub const HOME_DISTANCE: f32 = 8000.0;
+
+/// Where home is.
+pub const HOME: Vec2 = Vec2::new(HOME_DISTANCE, 0.0);
+
+/// Being this close to home is being home.
+pub const HOME_RADIUS: f32 = 70.0;
 
 /// World-space radius of the player.
 pub const PLAYER_RADIUS: f32 = 11.0;
@@ -52,40 +62,63 @@ pub const STOMPER_RADIUS: f32 = 15.0;
 /// World-space radius of a spark.
 pub const SPARK_RADIUS: f32 = 6.0;
 
-/// How many stompers share the arena.
+/// How many stompers travel with the player.
 pub const STOMPER_COUNT: usize = 5;
 
-/// Hits the player can take.
-pub const LIVES: u32 = 3;
+/// Hearts the player starts with, and the most it can hold.
+pub const MAX_HEARTS: u32 = 3;
 
-/// Walls, one per lane. Bass pitch classes map onto lanes.
-pub const WALL_LANES: usize = 4;
+/// Sparks it takes to restore a heart.
+pub const SPARKS_PER_HEART: u32 = 5;
+
+/// Walls stand every this far along the way home.
+pub const WALL_SPACING: f32 = 200.0;
 
 /// Half the thickness of a wall.
 pub const WALL_HALF_W: f32 = 14.0;
 
-/// Walls span this band of the arena, leaving the top and bottom open so
-/// nothing can be boxed in outright.
-pub const WALL_TOP: f32 = 110.0;
-/// See [`WALL_TOP`].
-pub const WALL_BOTTOM: f32 = WORLD_H - WALL_TOP;
+/// Walls repeat north-south with this period, broken by a gap each time, so
+/// there is always a way through if you look for it.
+pub const WALL_PERIOD_Y: f32 = 320.0;
 
-/// Sparks spawn inside this margin.
-const SPARK_MARGIN_X: f32 = 60.0;
-const SPARK_MARGIN_Y: f32 = 80.0;
+/// Length of the gap in each wall period.
+pub const WALL_GAP: f32 = 90.0;
 
-/// The area sparks spawn across, inside the margins.
-const SPARK_SPAN_X: f32 = WORLD_W - 2.0 * SPARK_MARGIN_X;
-const SPARK_SPAN_Y: f32 = WORLD_H - 2.0 * SPARK_MARGIN_Y;
-
-/// Sparks live for this many bars.
-const SPARK_LIFE_BARS: f32 = 2.0;
+/// How many lanes walls cycle through. Bass pitch classes map onto lanes.
+pub const WALL_LANES: usize = 4;
 
 /// How close a spark has to be for the pad to pull it in.
 pub const MAGNET_RADIUS: f32 = 160.0;
 
+/// How much of the hush pool one hushed instrument spends per second.
+pub const HUSH_DRAIN: f32 = 0.35;
+
+/// How much of the hush pool refills per second while nothing is hushed.
+pub const HUSH_RECHARGE: f32 = 0.2;
+
+/// Once the pool runs dry it must refill to this before it can be spent
+/// again, so a held key pulses rather than flickers.
+pub const HUSH_RELOCK: f32 = 0.4;
+
 /// How hard the pad pulls.
 const MAGNET_ACCEL: f32 = 900.0;
+
+/// Sparks land this far ahead of the player, spread by their step.
+const SPARK_AHEAD_MIN: f32 = 180.0;
+const SPARK_AHEAD_SPAN: f32 = 420.0;
+
+/// Sparks spread this far sideways, by their pitch.
+const SPARK_LATERAL: f32 = 420.0;
+
+/// Sparks live for this many bars.
+const SPARK_LIFE_BARS: f32 = 2.0;
+
+/// Sparks and stompers further than this from the player are recycled.
+const FAR: f32 = 1100.0;
+
+/// Stompers respawn this far from the player.
+const RESPAWN_MIN: f32 = 520.0;
+const RESPAWN_SPAN: f32 = 200.0;
 
 /// Fraction of velocity a spark keeps per tick.
 const SPARK_DAMPING: f32 = 0.92;
@@ -104,9 +137,6 @@ const KNOCKBACK: f32 = 420.0;
 
 /// Fraction of velocity a stomper keeps per tick.
 const STOMPER_DAMPING: f32 = 0.93;
-
-/// Fraction of speed kept when anything bounces off the arena edge.
-const RESTITUTION: f32 = 0.5;
 
 /// Beats a wall takes to sink after its last note.
 const WALL_SINK_BEATS: f32 = 1.5;
@@ -165,6 +195,12 @@ impl Vec2 {
             (other.y - self.y).mul_add(t, self.y),
         )
     }
+
+    /// Unit vector at `angle` radians.
+    #[must_use]
+    pub fn from_angle(angle: f32) -> Self {
+        Self::new(angle.cos(), angle.sin())
+    }
 }
 
 impl Add for Vec2 {
@@ -200,6 +236,13 @@ impl MulAssign<f32> for Vec2 {
     }
 }
 
+impl Neg for Vec2 {
+    type Output = Self;
+    fn neg(self) -> Self {
+        Self::new(-self.x, -self.y)
+    }
+}
+
 /// Something with a position worth interpolating. `prev_pos` is last tick's
 /// position, so the renderer can blend rather than stutter.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -224,12 +267,10 @@ impl Body {
         self.prev_pos.lerp(self.pos, alpha)
     }
 
-    /// Integrate one tick and keep a `radius` circle inside the arena.
-    fn step(&mut self, radius: f32) {
+    /// Integrate one tick.
+    fn step(&mut self) {
         self.prev_pos = self.pos;
         self.pos += self.vel * TICK_DT;
-        bounce(&mut self.pos.x, &mut self.vel.x, radius, WORLD_W - radius);
-        bounce(&mut self.pos.y, &mut self.vel.y, radius, WORLD_H - radius);
     }
 }
 
@@ -249,23 +290,6 @@ pub struct Stomper {
     pub heading: Vec2,
     /// `0..=1`, set on each step and fading, for the renderer.
     pub pulse: f32,
-}
-
-/// One lane's wall. Raised by bass notes, sinking between them.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Wall {
-    /// Centre line.
-    pub x: f32,
-    /// `0..=1`, how far up it is.
-    pub solidity: f32,
-}
-
-impl Wall {
-    /// Whether the wall currently blocks movement.
-    #[must_use]
-    pub fn is_solid(&self) -> bool {
-        self.solidity > WALL_SOLID
-    }
 }
 
 /// A pickup, spawned by a lead note.
@@ -294,8 +318,10 @@ pub enum Phase {
     /// Waiting for a first press. The music has not started.
     Title,
     Playing,
-    /// Out of lives. The music has stopped.
+    /// Out of hearts. The music has stopped.
     Over,
+    /// Home. The music has resolved.
+    Won,
 }
 
 /// Everything the sim is allowed to know about the outside world for one
@@ -307,8 +333,8 @@ pub struct InputFrame {
     pub move_dir: Vec2,
     /// Any press: leaves the title screen.
     pub start: bool,
-    /// Edge-triggered mute toggles, indexed by [`Instrument::index`].
-    pub toggle_layer: [bool; 4],
+    /// Held to hush an instrument, indexed by [`Instrument::index`].
+    pub hold_layer: [bool; 4],
     /// Edge-triggered: cue the next section.
     pub next_section: bool,
     /// Edge-triggered: flips the pause flag.
@@ -332,12 +358,15 @@ pub enum Cue {
     Chord(Chord),
     /// A new section of the song began.
     Section(Motif),
-    /// A mute or unmute took effect.
+    /// An instrument was hushed or let sound again.
     Layer { instrument: Instrument, on: bool },
-    /// The player collected a spark worth this much.
-    Pickup { value: u32 },
+    /// The player collected a spark. `healed` if it was the one that
+    /// restored a heart.
+    Pickup { healed: bool },
     /// A stomper caught the player.
     Hit { fatal: bool },
+    /// The player reached home. Comes with a [`Cue::Chord`] to resolve on.
+    Home,
     /// Pause was toggled. `paused` is the state just entered.
     Pause { paused: bool },
     /// The game started over.
@@ -355,12 +384,18 @@ pub struct Sim {
     paused: bool,
     player: Player,
     stompers: Vec<Stomper>,
-    walls: [Wall; WALL_LANES],
+    /// How far up each lane's walls are, `0..=1`.
+    walls: [f32; WALL_LANES],
     sparks: Vec<Spark>,
     /// The chord the pad last played, for the renderer's palette.
     chord: Option<Chord>,
-    score: u32,
-    lives: u32,
+    hearts: u32,
+    /// Sparks collected toward the next heart.
+    heal: u32,
+    /// The hush pool, `0..=1`.
+    hush: f32,
+    /// The pool ran dry and has not yet refilled to [`HUSH_RELOCK`].
+    hush_dry: bool,
     accumulator: f32,
     cues: Vec<Cue>,
     /// Scratch space for the sequencer, kept to avoid reallocating per tick.
@@ -373,12 +408,8 @@ impl Sim {
     pub fn new(seed: u64) -> Self {
         let mut rng = fastrand::Rng::with_seed(seed);
         let stompers = (0..STOMPER_COUNT)
-            .map(|_| spawn_stomper(&mut rng))
+            .map(|_| spawn_stomper(&mut rng, Vec2::ZERO))
             .collect();
-        let walls = std::array::from_fn(|lane| Wall {
-            x: WORLD_W * (lane as f32 + 1.0) / (WALL_LANES as f32 + 1.0),
-            solidity: 0.0,
-        });
         Self {
             seed,
             rng,
@@ -386,15 +417,17 @@ impl Sim {
             phase: Phase::Title,
             paused: false,
             player: Player {
-                body: Body::at(Vec2::new(WORLD_W * 0.5, WORLD_H * 0.5)),
+                body: Body::at(Vec2::ZERO),
                 invuln: 0.0,
             },
             stompers,
-            walls,
+            walls: [0.0; WALL_LANES],
             sparks: Vec::new(),
             chord: None,
-            score: 0,
-            lives: LIVES,
+            hearts: MAX_HEARTS,
+            heal: 0,
+            hush: 1.0,
+            hush_dry: false,
             accumulator: 0.0,
             cues: Vec::new(),
             events: Vec::new(),
@@ -419,16 +452,38 @@ impl Sim {
         self.paused
     }
 
-    /// Points so far.
+    /// Hearts left.
     #[must_use]
-    pub const fn score(&self) -> u32 {
-        self.score
+    pub const fn hearts(&self) -> u32 {
+        self.hearts
     }
 
-    /// Hits left to take.
+    /// How far toward the next heart the collected sparks have got, `0..1`.
     #[must_use]
-    pub const fn lives(&self) -> u32 {
-        self.lives
+    pub fn heal_progress(&self) -> f32 {
+        self.heal as f32 / SPARKS_PER_HEART as f32
+    }
+
+    /// How much hush is left to spend, `0..=1`.
+    #[must_use]
+    pub const fn hush(&self) -> f32 {
+        self.hush
+    }
+
+    /// Whether the hush pool is refilling from empty and cannot be spent.
+    #[must_use]
+    pub const fn hush_dry(&self) -> bool {
+        self.hush_dry
+    }
+
+    /// How far along the way home the player is, `0..=1`. Home counts as
+    /// all the way, however you arrived.
+    #[must_use]
+    pub fn progress(&self) -> f32 {
+        if self.phase == Phase::Won {
+            return 1.0;
+        }
+        (self.player.body.pos.x / HOME_DISTANCE).clamp(0.0, 1.0)
     }
 
     /// The player.
@@ -443,9 +498,9 @@ impl Sim {
         &self.stompers
     }
 
-    /// The walls, one per lane.
+    /// How far up each lane's walls are, `0..=1`, indexed by lane.
     #[must_use]
-    pub const fn walls(&self) -> &[Wall; WALL_LANES] {
+    pub const fn walls(&self) -> &[f32; WALL_LANES] {
         &self.walls
     }
 
@@ -477,13 +532,6 @@ impl Sim {
     #[must_use]
     pub const fn magnet_on(&self) -> bool {
         self.sequencer.is_active(Instrument::Pad)
-    }
-
-    /// What a spark is worth right now: instruments sounding, times the
-    /// motif's multiplier. Silence still pays one.
-    #[must_use]
-    pub fn spark_value(&self) -> u32 {
-        self.sequencer.active_count().max(1) * multiplier(self.motif())
     }
 
     /// How far the leftover accumulator has carried us into the next tick, in
@@ -527,11 +575,6 @@ impl Sim {
             return 0;
         }
 
-        for instrument in Instrument::ALL {
-            if input.toggle_layer[instrument.index()] {
-                self.sequencer.request_toggle(instrument);
-            }
-        }
         if input.next_section {
             self.sequencer.request_skip();
         }
@@ -554,6 +597,7 @@ impl Sim {
         // The music first, so this tick's notes act on this tick.
         let mut events = std::mem::take(&mut self.events);
         events.clear();
+        self.apply_hush(input.hold_layer, &mut events);
         self.sequencer.advance(TICK_DT, &mut events);
         for event in &events {
             self.apply(*event);
@@ -566,6 +610,34 @@ impl Sim {
         self.move_sparks();
         self.collect_sparks();
         self.take_hits();
+        self.arrive();
+    }
+
+    /// Spend the hush pool on whatever the player is holding down, or let
+    /// it refill. Only instruments the arrangement is actually playing cost
+    /// anything; there is nothing to hush in a silent layer.
+    fn apply_hush(&mut self, hold: [bool; 4], events: &mut Vec<Event>) {
+        let usable = !self.hush_dry && self.hush > 0.0;
+        let arranged = self.sequencer.section().arranged;
+        let mut holding = 0_u32;
+        for instrument in Instrument::ALL {
+            let i = instrument.index();
+            let want = hold[i] && usable && arranged[i];
+            self.sequencer.set_muted(instrument, want, events);
+            holding += u32::from(want);
+        }
+        if holding > 0 {
+            self.hush -= HUSH_DRAIN * holding as f32 * TICK_DT;
+            if self.hush <= 0.0 {
+                self.hush = 0.0;
+                self.hush_dry = true;
+            }
+        } else {
+            self.hush = HUSH_RECHARGE.mul_add(TICK_DT, self.hush).min(1.0);
+            if self.hush_dry && self.hush >= HUSH_RELOCK {
+                self.hush_dry = false;
+            }
+        }
     }
 
     /// Turn one music event into behaviour, and forward it as a cue.
@@ -579,7 +651,7 @@ impl Sim {
             } => {
                 match instrument {
                     Instrument::Drums => self.drum_hit(pitch),
-                    Instrument::Bass => self.walls[lane_of(pitch)].solidity = 1.0,
+                    Instrument::Bass => self.walls[lane_of_pitch(pitch)] = 1.0,
                     Instrument::Lead => self.spawn_spark(pitch, step),
                     Instrument::Pad => {}
                 }
@@ -619,7 +691,7 @@ impl Sim {
                     stomper.pulse = 1.0;
                 }
                 (Motif::Wander, song::SNARE) => {
-                    stomper.heading = random_heading(&mut self.rng);
+                    stomper.heading = Vec2::from_angle(self.rng.f32() * std::f32::consts::TAU);
                     stomper.pulse = 0.6;
                 }
                 _ => {}
@@ -627,17 +699,20 @@ impl Sim {
         }
     }
 
-    /// Place a spark by pitch (left to right) and by where in the bar the
-    /// note fell (top to bottom), so a bar of melody draws a shape.
+    /// Drop a spark ahead of the player: further ahead the later in the bar
+    /// the note fell, further to the side the further its pitch is from
+    /// the middle of the tune. A bar of melody lays a trail.
     fn spawn_spark(&mut self, pitch: u8, step: u32) {
         let motif = self.motif();
         let (lo, hi) = motif.lead_range();
         let span = f32::from(hi.saturating_sub(lo)).max(1.0);
-        let x = (f32::from(pitch.saturating_sub(lo)) / span).mul_add(SPARK_SPAN_X, SPARK_MARGIN_X);
-        let y = (step as f32 / song::STEPS_PER_BAR as f32).mul_add(SPARK_SPAN_Y, SPARK_MARGIN_Y);
+        let ahead =
+            (step as f32 / song::STEPS_PER_BAR as f32).mul_add(SPARK_AHEAD_SPAN, SPARK_AHEAD_MIN);
+        // Higher notes land further north, which is up on screen.
+        let lateral = (0.5 - f32::from(pitch.saturating_sub(lo)) / span) * SPARK_LATERAL;
         let life = motif.bar_secs() * SPARK_LIFE_BARS;
         self.sparks.push(Spark {
-            body: Body::at(Vec2::new(x, y)),
+            body: Body::at(self.player.body.pos + Vec2::new(ahead, lateral)),
             pitch,
             life,
             max_life: life,
@@ -653,22 +728,24 @@ impl Sim {
         let target = dir * (PLAYER_SPEED * speed_scale(self.motif()));
         let body = &mut self.player.body;
         body.vel += (target - body.vel) * PLAYER_ACCEL;
-        body.step(PLAYER_RADIUS);
-        for wall in self.walls {
-            push_out(wall, body, PLAYER_RADIUS);
-        }
+        body.step();
+        push_out(&self.walls, body, PLAYER_RADIUS);
         self.player.invuln = (self.player.invuln - TICK_DT).max(0.0);
     }
 
     fn move_stompers(&mut self) {
         self.separate_stompers();
-        for stomper in &mut self.stompers {
+        let player_pos = self.player.body.pos;
+        for i in 0..self.stompers.len() {
+            let stomper = &mut self.stompers[i];
             stomper.body.vel *= STOMPER_DAMPING;
-            stomper.body.step(STOMPER_RADIUS);
-            for wall in self.walls {
-                push_out(wall, &mut stomper.body, STOMPER_RADIUS);
-            }
+            stomper.body.step();
+            push_out(&self.walls, &mut stomper.body, STOMPER_RADIUS);
             stomper.pulse = (stomper.pulse - TICK_DT / PULSE_FADE).max(0.0);
+            // Left behind: come back somewhere new near the player.
+            if (stomper.body.pos - player_pos).length() > FAR {
+                self.stompers[i] = spawn_stomper(&mut self.rng, player_pos);
+            }
         }
     }
 
@@ -691,7 +768,7 @@ impl Sim {
                     Vec2::new(1.0, 0.0)
                 };
                 let shove = away * (SEPARATION * (1.0 - dist / reach) * TICK_DT);
-                self.stompers[i].body.vel += shove * -1.0;
+                self.stompers[i].body.vel += -shove;
                 self.stompers[j].body.vel += shove;
             }
         }
@@ -700,7 +777,7 @@ impl Sim {
     fn sink_walls(&mut self) {
         let rate = 1.0 / (WALL_SINK_BEATS * self.motif().beat_secs());
         for wall in &mut self.walls {
-            wall.solidity = rate.mul_add(-TICK_DT, wall.solidity).max(0.0);
+            *wall = rate.mul_add(-TICK_DT, *wall).max(0.0);
         }
     }
 
@@ -719,21 +796,29 @@ impl Sim {
                 }
             }
             spark.body.vel *= SPARK_DAMPING;
-            spark.body.step(SPARK_RADIUS);
+            spark.body.step();
         }
-        self.sparks.retain(|spark| spark.life > 0.0);
+        self.sparks
+            .retain(|spark| spark.life > 0.0 && (spark.body.pos - player_pos).length() < FAR);
     }
 
     fn collect_sparks(&mut self) {
-        let value = self.spark_value();
         let player_pos = self.player.body.pos;
         let reach = PLAYER_RADIUS + SPARK_RADIUS;
         let before = self.sparks.len();
         self.sparks
             .retain(|spark| (spark.body.pos - player_pos).length() > reach);
         for _ in self.sparks.len()..before {
-            self.score += value;
-            self.cues.push(Cue::Pickup { value });
+            let mut healed = false;
+            if self.hearts < MAX_HEARTS {
+                self.heal += 1;
+                if self.heal >= SPARKS_PER_HEART {
+                    self.heal = 0;
+                    self.hearts += 1;
+                    healed = true;
+                }
+            }
+            self.cues.push(Cue::Pickup { healed });
         }
     }
 
@@ -755,28 +840,72 @@ impl Sim {
         let away = (player_pos - stomper.body.pos).normalized();
         self.player.body.vel = away * KNOCKBACK;
         self.player.invuln = INVULN_SECS;
-        self.lives -= 1;
-        let fatal = self.lives == 0;
+        self.hearts -= 1;
+        let fatal = self.hearts == 0;
         if fatal {
             self.phase = Phase::Over;
         }
         self.cues.push(Cue::Hit { fatal });
     }
+
+    /// Reaching home ends the journey on the motif's home chord.
+    fn arrive(&mut self) {
+        if (self.player.body.pos - HOME).length() > HOME_RADIUS {
+            return;
+        }
+        self.phase = Phase::Won;
+        let tonic = self.motif().tonic();
+        self.chord = Some(tonic);
+        self.cues.push(Cue::Chord(tonic));
+        self.cues.push(Cue::Home);
+    }
 }
 
-/// Which wall a bass note raises: the twelve pitch classes split across the
-/// four lanes, so a bass line walks the walls up and down the arena.
-fn lane_of(pitch: u8) -> usize {
+/// Hooks for other modules' tests to stage a scene.
+#[cfg(test)]
+impl Sim {
+    pub(crate) fn place_player(&mut self, pos: Vec2) {
+        self.player.body = Body::at(pos);
+    }
+
+    pub(crate) fn shield_player(&mut self) {
+        self.player.invuln = 10.0;
+    }
+}
+
+/// Which lane a bass note raises: the twelve pitch classes split across the
+/// lanes, so a bass line walks the walls up and down the road.
+fn lane_of_pitch(pitch: u8) -> usize {
     usize::from(pitch % 12) * WALL_LANES / 12
 }
 
-/// Score multiplier per motif.
-const fn multiplier(motif: Motif) -> u32 {
-    match motif {
-        Motif::Wander => 1,
-        Motif::Pursuit => 2,
-        Motif::Lullaby => 3,
-    }
+/// Which lane the wall with grid index `k` belongs to. Walls cycle through
+/// the lanes along the way home.
+#[must_use]
+pub const fn lane_of_wall(k: i32) -> usize {
+    // Four lanes fit in an i32 on any target.
+    #[allow(clippy::cast_possible_wrap)]
+    let lanes = WALL_LANES as i32;
+    k.rem_euclid(lanes) as usize
+}
+
+/// Centre line of the wall with grid index `k`.
+#[must_use]
+pub fn wall_x(k: i32) -> f32 {
+    k as f32 * WALL_SPACING
+}
+
+/// Whether a wall at solidity `solidity` blocks.
+#[must_use]
+pub fn wall_is_solid(solidity: f32) -> bool {
+    solidity > WALL_SOLID
+}
+
+/// Whether a wall stands at `y`, or `y` falls in a gap.
+#[must_use]
+pub fn wall_stands_at(y: f32) -> bool {
+    let yy = y.rem_euclid(WALL_PERIOD_Y);
+    yy > WALL_GAP * 0.5 && yy < WALL_GAP.mul_add(-0.5, WALL_PERIOD_Y)
 }
 
 /// Player speed per motif, as a fraction of [`PLAYER_SPEED`].
@@ -797,53 +926,51 @@ const fn lunge(motif: Motif) -> f32 {
     }
 }
 
-fn random_heading(rng: &mut fastrand::Rng) -> Vec2 {
-    let angle = rng.f32() * std::f32::consts::TAU;
-    Vec2::new(angle.cos(), angle.sin())
-}
-
-/// Stompers start around the edges, away from the player in the middle.
-fn spawn_stomper(rng: &mut fastrand::Rng) -> Stomper {
-    let angle = rng.f32() * std::f32::consts::TAU;
-    let radius = rng.f32().mul_add(60.0, 200.0);
-    let pos = Vec2::new(
-        angle.cos().mul_add(radius, WORLD_W * 0.5),
-        angle.sin().mul_add(radius, WORLD_H * 0.5),
-    );
+/// A stomper somewhere around `near`, far enough away to be fair, and not
+/// inside a wall, which would shove it the moment the bass played.
+fn spawn_stomper(rng: &mut fastrand::Rng, near: Vec2) -> Stomper {
+    let mut pos = near;
+    for _ in 0..16 {
+        let angle = rng.f32() * std::f32::consts::TAU;
+        let radius = rng.f32().mul_add(RESPAWN_SPAN, RESPAWN_MIN);
+        pos = near + Vec2::from_angle(angle) * radius;
+        if !inside_wall(pos, STOMPER_RADIUS) {
+            break;
+        }
+    }
     Stomper {
         body: Body::at(pos),
-        heading: random_heading(rng),
+        heading: Vec2::from_angle(rng.f32() * std::f32::consts::TAU),
         pulse: 0.0,
     }
 }
 
-/// Clamp one axis into `lo..=hi`, reflecting velocity on contact.
-fn bounce(pos: &mut f32, vel: &mut f32, lo: f32, hi: f32) {
-    if *pos < lo {
-        *pos = lo;
-    } else if *pos > hi {
-        *pos = hi;
-    } else {
-        return;
-    }
-    *vel = -*vel * RESTITUTION;
+/// Whether a circle overlaps where a wall stands, up or not.
+fn inside_wall(pos: Vec2, radius: f32) -> bool {
+    let k = (pos.x / WALL_SPACING).round() as i32;
+    let in_band = wall_stands_at(pos.y - radius) || wall_stands_at(pos.y + radius);
+    in_band && (pos.x - wall_x(k)).abs() < WALL_HALF_W + radius
 }
 
-/// Keep a circle out of a solid wall by shoving it sideways. Walls are thin
-/// and tall, so sideways is always the short way out.
-fn push_out(wall: Wall, body: &mut Body, radius: f32) {
-    if !wall.is_solid() {
+/// Keep a circle out of the nearest solid wall by shoving it sideways.
+/// Walls are thin and tall, so sideways is always the short way out.
+fn push_out(walls: &[f32; WALL_LANES], body: &mut Body, radius: f32) {
+    // Walls are far enough apart that only the nearest can touch a body.
+    let k = (body.pos.x / WALL_SPACING).round() as i32;
+    if !wall_is_solid(walls[lane_of_wall(k)]) {
         return;
     }
-    let within_band = body.pos.y + radius > WALL_TOP && body.pos.y - radius < WALL_BOTTOM;
-    if !within_band {
+    // Rounded to the body's reach, so it cannot clip a wall's end.
+    let in_wall = wall_stands_at(body.pos.y - radius) || wall_stands_at(body.pos.y + radius);
+    if !in_wall {
         return;
     }
-    let overlap = WALL_HALF_W + radius - (body.pos.x - wall.x).abs();
+    let x = wall_x(k);
+    let overlap = WALL_HALF_W + radius - (body.pos.x - x).abs();
     if overlap <= 0.0 {
         return;
     }
-    if body.pos.x < wall.x {
+    if body.pos.x < x {
         body.pos.x -= overlap;
         body.vel.x = body.vel.x.min(0.0);
     } else {
@@ -873,6 +1000,19 @@ mod tests {
         sim
     }
 
+    fn moving(x: f32, y: f32) -> InputFrame {
+        InputFrame {
+            move_dir: Vec2::new(x, y),
+            ..InputFrame::default()
+        }
+    }
+
+    fn holding(instrument: Instrument) -> InputFrame {
+        let mut input = InputFrame::default();
+        input.hold_layer[instrument.index()] = true;
+        input
+    }
+
     /// Run `secs` of sim time at 60 Hz, counting cues that match.
     fn run(sim: &mut Sim, secs: f32, input: &InputFrame, want: impl Fn(&Cue) -> bool) -> usize {
         let ticks = (secs * 60.0).round() as u32;
@@ -898,6 +1038,10 @@ mod tests {
         panic!("never reached section {section}");
     }
 
+    fn section_of(motif: Motif) -> usize {
+        SONG.iter().position(|s| s.motif == motif).unwrap()
+    }
+
     fn snapshot(sim: &Sim) -> Vec<Vec2> {
         std::iter::once(sim.player().body.pos)
             .chain(sim.stompers().iter().map(|s| s.body.pos))
@@ -905,28 +1049,21 @@ mod tests {
             .collect()
     }
 
+    /// A y in the middle of a wall segment, where walls stand.
+    const WALLED_Y: f32 = WALL_PERIOD_Y * 0.5;
+
     #[test]
     fn title_screen_is_silent_and_still() {
         let mut sim = Sim::new(1);
-        let busy = InputFrame {
-            move_dir: Vec2::new(1.0, 0.0),
-            ..InputFrame::default()
-        };
-        let cues = run(&mut sim, 2.0, &busy, |_| true);
+        let cues = run(&mut sim, 2.0, &moving(1.0, 0.0), |_| true);
         assert_eq!(cues, 0);
         assert_eq!(sim.phase(), Phase::Title);
-        assert_eq!(
-            sim.player().body.pos,
-            Vec2::new(WORLD_W * 0.5, WORLD_H * 0.5)
-        );
+        assert_eq!(sim.player().body.pos, Vec2::ZERO);
     }
 
     #[test]
     fn same_seed_and_inputs_are_bit_identical() {
-        let input = InputFrame {
-            move_dir: Vec2::new(0.7, -0.3),
-            ..InputFrame::default()
-        };
+        let input = moving(0.7, -0.3);
         let mut a = playing(0xDEAD_BEEF);
         let mut b = playing(0xDEAD_BEEF);
         for _ in 0..600 {
@@ -934,12 +1071,31 @@ mod tests {
             b.advance(TICK_DT, &input);
         }
         assert_eq!(snapshot(&a), snapshot(&b));
-        assert_eq!(a.score(), b.score());
+        assert_eq!(a.hearts(), b.hearts());
     }
 
     #[test]
     fn different_seeds_diverge() {
         assert_ne!(snapshot(&Sim::new(1)), snapshot(&Sim::new(2)));
+    }
+
+    #[test]
+    fn stompers_start_out_of_reach_and_out_of_walls() {
+        for seed in 0..50 {
+            let sim = Sim::new(seed);
+            for stomper in sim.stompers() {
+                let dist = stomper.body.pos.length();
+                assert!(
+                    dist >= RESPAWN_MIN,
+                    "seed {seed}: stomper spawned {dist} away"
+                );
+                assert!(
+                    !inside_wall(stomper.body.pos, STOMPER_RADIUS),
+                    "seed {seed}: stomper spawned in a wall at {:?}",
+                    stomper.body.pos
+                );
+            }
+        }
     }
 
     #[test]
@@ -976,7 +1132,7 @@ mod tests {
 
         let before = snapshot(&sim);
         let music = sim.music();
-        let cues = run(&mut sim, 3.0, &InputFrame::default(), |_| true);
+        let cues = run(&mut sim, 3.0, &moving(1.0, 0.0), |_| true);
         assert_eq!(cues, 0);
         assert_eq!(snapshot(&sim), before);
         assert_eq!(sim.music(), music);
@@ -993,55 +1149,48 @@ mod tests {
     }
 
     #[test]
-    fn lead_notes_spawn_sparks_and_muting_stops_them() {
+    fn lead_notes_lay_a_trail_ahead_and_muting_stops_them() {
         let mut sim = playing(3);
         run(&mut sim, 2.0, &InputFrame::default(), |_| true);
         assert!(
             !sim.sparks().is_empty(),
             "two seconds of lead spawned nothing"
         );
-
-        let mut toggle = InputFrame::default();
-        toggle.toggle_layer[Instrument::Lead.index()] = true;
-        sim.advance(TICK_DT, &toggle);
-        // Wait out the bar, then two more bars of lifetime.
-        let bar = sim.motif().bar_secs();
-        run(
-            &mut sim,
-            bar * (1.0 + SPARK_LIFE_BARS) + 0.1,
-            &InputFrame::default(),
-            |_| true,
-        );
-        assert!(
-            sim.sparks().is_empty(),
-            "{} sparks survived a muted lead",
-            sim.sparks().len()
-        );
-    }
-
-    #[test]
-    fn sparks_land_by_pitch_and_step() {
-        let mut sim = playing(3);
-        run(&mut sim, 3.0, &InputFrame::default(), |_| true);
         let (lo, hi) = sim.motif().lead_range();
         for spark in sim.sparks() {
             assert!((lo..=hi).contains(&spark.pitch));
-            let pos = spark.body.pos;
-            assert!(pos.x >= SPARK_MARGIN_X - 1.0 && pos.x <= WORLD_W - SPARK_MARGIN_X + 1.0);
-            assert!(pos.y >= SPARK_MARGIN_Y - 1.0 && pos.y <= WORLD_H - SPARK_MARGIN_Y + 1.0);
+            let offset = spark.body.pos - sim.player().body.pos;
+            assert!(
+                offset.x >= SPARK_AHEAD_MIN - 1.0,
+                "spark behind: {offset:?}"
+            );
+            assert!(offset.x <= SPARK_AHEAD_MIN + SPARK_AHEAD_SPAN + 1.0);
+            assert!(offset.y.abs() <= SPARK_LATERAL.mul_add(0.5, 1.0));
         }
-        // The lowest note sits furthest left, the highest furthest right.
-        let leftmost = sim
+        // Higher notes land further north.
+        let top = sim
             .sparks()
             .iter()
-            .min_by(|a, b| a.body.pos.x.total_cmp(&b.body.pos.x))
+            .min_by(|a, b| a.body.pos.y.total_cmp(&b.body.pos.y))
             .unwrap();
-        let rightmost = sim
+        let bottom = sim
             .sparks()
             .iter()
-            .max_by(|a, b| a.body.pos.x.total_cmp(&b.body.pos.x))
+            .max_by(|a, b| a.body.pos.y.total_cmp(&b.body.pos.y))
             .unwrap();
-        assert!(leftmost.pitch <= rightmost.pitch);
+        assert!(top.pitch >= bottom.pitch);
+
+        // Hush the lead for most of the pool, and no new sparks appear:
+        // every survivor is older than the hush.
+        let secs = 0.8 / HUSH_DRAIN;
+        run(&mut sim, secs, &holding(Instrument::Lead), |_| true);
+        for spark in sim.sparks() {
+            let age = spark.max_life - spark.life;
+            assert!(
+                age >= secs - 0.05,
+                "a spark spawned {age}s ago, during the hush"
+            );
+        }
     }
 
     #[test]
@@ -1049,60 +1198,56 @@ mod tests {
         let mut sim = playing(5);
         run(&mut sim, 0.5, &InputFrame::default(), |_| true);
         assert!(
-            sim.walls().iter().any(Wall::is_solid),
+            sim.walls().iter().any(|&w| wall_is_solid(w)),
             "no wall rose to the bass"
         );
 
-        let mut toggle = InputFrame::default();
-        toggle.toggle_layer[Instrument::Bass.index()] = true;
-        sim.advance(TICK_DT, &toggle);
-        let bar = sim.motif().bar_secs();
-        run(&mut sim, bar * 2.0, &InputFrame::default(), |_| true);
+        // Hush the bass for a couple of beats and every wall sinks.
+        let secs = sim.motif().beat_secs() * (WALL_SINK_BEATS + 0.5);
+        assert!(secs < 1.0 / HUSH_DRAIN, "pool would run dry mid-test");
+        run(&mut sim, secs, &holding(Instrument::Bass), |_| true);
         assert!(
-            sim.walls().iter().all(|w| w.solidity <= 0.0),
+            sim.walls().iter().all(|&w| w <= 0.0),
             "walls stayed up without bass: {:?}",
             sim.walls()
         );
     }
 
+    /// Drive east from just west of wall 1 for a second, holding every
+    /// lane at `solidity`, and return where the player ended up.
+    fn drive_at_wall(y: f32, solidity: f32) -> f32 {
+        let mut sim = playing(5);
+        sim.player.body = Body::at(Vec2::new(wall_x(1) - 100.0, y));
+        for _ in 0..60 {
+            sim.walls = [solidity; WALL_LANES];
+            sim.player.invuln = 10.0;
+            sim.advance(TICK_DT, &moving(1.0, 0.0));
+        }
+        sim.player().body.pos.x
+    }
+
     #[test]
     fn solid_walls_block_the_player() {
-        let mut sim = playing(5);
-        // Drive at the first lane's wall from the left, mid-height.
-        sim.player.body = Body::at(Vec2::new(sim.walls[0].x - 100.0, WORLD_H * 0.5));
-        sim.walls[0].solidity = 1.0;
-        let right = InputFrame {
-            move_dir: Vec2::new(1.0, 0.0),
-            ..InputFrame::default()
-        };
-        // Bass keeps the wall up regardless; hold solidity to be sure.
-        for _ in 0..60 {
-            sim.walls[0].solidity = 1.0;
-            sim.advance(TICK_DT, &right);
-        }
-        let wall_x = sim.walls()[0].x;
+        let x = drive_at_wall(WALLED_Y, 1.0);
         assert!(
-            sim.player().body.pos.x <= wall_x - WALL_HALF_W - PLAYER_RADIUS + 0.01,
-            "player at {} passed a wall at {wall_x}",
-            sim.player().body.pos.x
+            x <= wall_x(1) - WALL_HALF_W - PLAYER_RADIUS + 0.01,
+            "player at {x} passed a wall at {}",
+            wall_x(1)
         );
     }
 
     #[test]
     fn sunk_walls_do_not_block() {
-        let mut sim = playing(5);
-        sim.player.body = Body::at(Vec2::new(sim.walls[0].x - 60.0, WORLD_H * 0.5));
-        let right = InputFrame {
-            move_dir: Vec2::new(1.0, 0.0),
-            ..InputFrame::default()
-        };
-        for _ in 0..60 {
-            for wall in &mut sim.walls {
-                wall.solidity = 0.0;
-            }
-            sim.advance(TICK_DT, &right);
-        }
-        assert!(sim.player().body.pos.x > sim.walls()[0].x);
+        assert!(drive_at_wall(WALLED_Y, 0.0) > wall_x(1));
+    }
+
+    #[test]
+    fn wall_gaps_let_the_player_through() {
+        // The gap sits astride each period boundary.
+        assert!(drive_at_wall(0.0, 1.0) > wall_x(1));
+        assert!(drive_at_wall(WALL_PERIOD_Y * 3.0, 1.0) > wall_x(1));
+        assert!(!wall_stands_at(0.0));
+        assert!(wall_stands_at(WALLED_Y));
     }
 
     #[test]
@@ -1124,8 +1269,7 @@ mod tests {
     #[test]
     fn stompers_sleep_through_the_lullaby() {
         let mut sim = playing(11);
-        let lullaby = SONG.iter().position(|s| s.motif == Motif::Lullaby).unwrap();
-        run_to_section(&mut sim, lullaby);
+        run_to_section(&mut sim, section_of(Motif::Lullaby));
         // Let any lingering momentum from the chase die down.
         run(&mut sim, 1.5, &InputFrame::default(), |_| true);
         let before: Vec<Vec2> = sim.stompers().iter().map(|s| s.body.pos).collect();
@@ -1139,31 +1283,29 @@ mod tests {
         }
         // And they are harmless: park the player on one.
         sim.player.body = Body::at(sim.stompers()[0].body.pos);
+        sim.player.invuln = 0.0;
         let hits = run(&mut sim, 0.5, &InputFrame::default(), |c| {
             matches!(c, Cue::Hit { .. })
         });
         assert_eq!(hits, 0);
-        assert_eq!(sim.lives(), LIVES);
+        assert_eq!(sim.hearts(), MAX_HEARTS);
     }
 
     #[test]
     fn stompers_chase_during_pursuit() {
         let mut sim = playing(11);
-        let pursuit = SONG.iter().position(|s| s.motif == Motif::Pursuit).unwrap();
-        run_to_section(&mut sim, pursuit);
-        // Park the player in a corner with infinite lives, and watch them come.
-        let corner = Vec2::new(60.0, 60.0);
-        sim.player.body = Body::at(corner);
+        run_to_section(&mut sim, section_of(Motif::Pursuit));
+        let here = sim.player().body.pos;
         let mean_dist = |sim: &Sim| {
             sim.stompers()
                 .iter()
-                .map(|s| (s.body.pos - corner).length())
+                .map(|s| (s.body.pos - here).length())
                 .sum::<f32>()
                 / STOMPER_COUNT as f32
         };
         let before = mean_dist(&sim);
         for _ in 0..(60 * 3) {
-            sim.player.body = Body::at(corner);
+            sim.player.body = Body::at(here);
             sim.player.invuln = 10.0;
             sim.advance(TICK_DT, &InputFrame::default());
         }
@@ -1177,14 +1319,13 @@ mod tests {
     #[test]
     fn stompers_do_not_stack_while_chasing() {
         let mut sim = playing(11);
-        let pursuit = SONG.iter().position(|s| s.motif == Motif::Pursuit).unwrap();
-        run_to_section(&mut sim, pursuit);
-        // Hold still in the middle with infinite lives and let the pack
-        // arrive, then count how often any two of them are deeply overlapped.
-        let centre = Vec2::new(WORLD_W * 0.5, WORLD_H * 0.5);
+        run_to_section(&mut sim, section_of(Motif::Pursuit));
+        // Hold still with infinite hearts and let the pack arrive, then
+        // count how often any two of them are deeply overlapped.
+        let here = sim.player().body.pos;
         let (mut overlapped, mut pairs) = (0_u32, 0_u32);
         for tick in 0..(60 * 8) {
-            sim.player.body = Body::at(centre);
+            sim.player.body = Body::at(here);
             sim.player.invuln = 10.0;
             sim.advance(TICK_DT, &InputFrame::default());
             if tick < 60 * 3 {
@@ -1209,7 +1350,22 @@ mod tests {
     }
 
     #[test]
-    fn hits_cost_lives_then_the_game() {
+    fn stompers_follow_the_player_across_the_world() {
+        let mut sim = playing(11);
+        for _ in 0..(60 * 20) {
+            sim.player.invuln = 10.0;
+            sim.advance(TICK_DT, &moving(1.0, 0.0));
+        }
+        let here = sim.player().body.pos;
+        assert!(here.x > 3000.0, "player only got to {here:?}");
+        for stomper in sim.stompers() {
+            let dist = (stomper.body.pos - here).length();
+            assert!(dist <= FAR, "a stomper was left {dist} behind");
+        }
+    }
+
+    #[test]
+    fn hits_cost_hearts_then_the_game() {
         let mut sim = playing(11);
         run_to_section(&mut sim, 1);
         sim.player.invuln = 0.0;
@@ -1227,8 +1383,8 @@ mod tests {
                 break;
             }
         }
-        assert_eq!(hits, LIVES as usize);
-        assert_eq!(sim.lives(), 0);
+        assert_eq!(hits, MAX_HEARTS as usize);
+        assert_eq!(sim.hearts(), 0);
         assert_eq!(sim.phase(), Phase::Over);
         assert_eq!(sim.cues().last(), Some(&Cue::Hit { fatal: true }));
 
@@ -1260,38 +1416,138 @@ mod tests {
         panic!("expected two hits in five seconds");
     }
 
-    #[test]
-    fn pickups_score_by_layers_and_motif() {
-        let mut sim = playing(3);
-        run(&mut sim, 1.0, &InputFrame::default(), |_| true);
-        // Intro: bass and lead sound, so a spark is worth two.
-        assert_eq!(sim.spark_value(), 2);
-        let spark = sim.sparks()[0];
-        sim.player.body = Body::at(spark.body.pos);
-        let pickups = run(&mut sim, TICK_DT, &InputFrame::default(), |c| {
-            matches!(c, Cue::Pickup { value: 2 })
+    /// Put a spark on the player and tick once, returning the pickup cue.
+    fn eat_a_spark(sim: &mut Sim) -> Cue {
+        sim.sparks.push(Spark {
+            body: Body::at(sim.player().body.pos),
+            pitch: 60,
+            life: 10.0,
+            max_life: 10.0,
         });
-        assert_eq!(pickups, 1);
-        assert_eq!(sim.score(), 2);
-
-        // Full arrangement in pursuit: four layers, doubled.
-        let pursuit = SONG.iter().position(|s| s.motif == Motif::Pursuit).unwrap();
-        run_to_section(&mut sim, pursuit);
-        assert_eq!(sim.spark_value(), 8);
+        sim.advance(TICK_DT, &InputFrame::default());
+        *sim.cues()
+            .iter()
+            .find(|c| matches!(c, Cue::Pickup { .. }))
+            .expect("a spark on the player is collected")
     }
 
     #[test]
-    fn muting_everything_still_pays_one() {
+    fn sparks_heal_a_heart_at_a_time() {
         let mut sim = playing(3);
-        let mute_all = InputFrame {
-            toggle_layer: [true; 4],
-            ..InputFrame::default()
+        sim.hearts = 1;
+        for n in 1..SPARKS_PER_HEART {
+            assert_eq!(eat_a_spark(&mut sim), Cue::Pickup { healed: false });
+            assert!((sim.heal_progress() - n as f32 / SPARKS_PER_HEART as f32).abs() < 1e-5);
+            assert_eq!(sim.hearts(), 1);
+        }
+        assert_eq!(eat_a_spark(&mut sim), Cue::Pickup { healed: true });
+        assert_eq!(sim.hearts(), 2);
+        assert!(sim.heal_progress().abs() < 1e-5);
+    }
+
+    #[test]
+    fn full_hearts_do_not_bank_sparks() {
+        let mut sim = playing(3);
+        for _ in 0..(SPARKS_PER_HEART * 2) {
+            assert_eq!(eat_a_spark(&mut sim), Cue::Pickup { healed: false });
+        }
+        assert_eq!(sim.hearts(), MAX_HEARTS);
+        assert!(sim.heal_progress().abs() < 1e-5);
+    }
+
+    #[test]
+    fn holding_hushes_at_once_and_spends_the_pool() {
+        let mut sim = playing(3);
+        run(&mut sim, 0.5, &InputFrame::default(), |_| true);
+        assert!((sim.hush() - 1.0).abs() < 1e-6);
+        let lead_notes = |c: &Cue| {
+            matches!(
+                c,
+                Cue::Note {
+                    instrument: Instrument::Lead,
+                    ..
+                }
+            )
         };
-        sim.advance(TICK_DT, &mute_all);
-        let bar = sim.motif().bar_secs();
-        run(&mut sim, bar, &InputFrame::default(), |_| true);
-        assert_eq!(sim.music().layers.iter().filter(|l| l.active()).count(), 0);
-        assert_eq!(sim.spark_value(), 1);
+        // The very first hushed tick announces it, and no lead note follows.
+        sim.advance(TICK_DT, &holding(Instrument::Lead));
+        assert!(sim.cues().contains(&Cue::Layer {
+            instrument: Instrument::Lead,
+            on: false
+        }));
+        let notes = run(&mut sim, 1.0, &holding(Instrument::Lead), lead_notes);
+        assert_eq!(notes, 0);
+        let spent = 1.0 - sim.hush();
+        assert!(
+            (spent - HUSH_DRAIN).abs() < 0.02,
+            "a second of hushing spent {spent}"
+        );
+        // Letting go announces that too, and the pool refills.
+        sim.advance(TICK_DT, &InputFrame::default());
+        assert!(sim.cues().contains(&Cue::Layer {
+            instrument: Instrument::Lead,
+            on: true
+        }));
+        let before = sim.hush();
+        run(&mut sim, 1.0, &InputFrame::default(), |_| true);
+        assert!((sim.hush() - before - HUSH_RECHARGE).abs() < 0.02);
+    }
+
+    #[test]
+    fn a_dry_pool_lets_go_and_relocks_until_refilled() {
+        let mut sim = playing(3);
+        run(&mut sim, 0.5, &InputFrame::default(), |_| true);
+        let lead_notes = |c: &Cue| {
+            matches!(
+                c,
+                Cue::Note {
+                    instrument: Instrument::Lead,
+                    ..
+                }
+            )
+        };
+        // Hold well past the pool's worth: the lead comes back on its own.
+        run(
+            &mut sim,
+            1.0 / HUSH_DRAIN + 0.2,
+            &holding(Instrument::Lead),
+            |_| true,
+        );
+        assert!(sim.hush_dry());
+        let notes = run(&mut sim, 1.0, &holding(Instrument::Lead), lead_notes);
+        assert!(notes > 0, "lead stayed hushed on an empty pool");
+        // Keep holding: it stays audible until the pool refills to the
+        // relock mark, then hushes again.
+        // (The second of listening above already refilled some of it.)
+        let to_relock = HUSH_RELOCK / HUSH_RECHARGE - 1.0 + 0.1;
+        run(&mut sim, to_relock, &holding(Instrument::Lead), |_| true);
+        assert!(!sim.hush_dry());
+        let notes = run(&mut sim, 0.5, &holding(Instrument::Lead), lead_notes);
+        assert_eq!(notes, 0, "lead did not hush again once the pool refilled");
+    }
+
+    #[test]
+    fn hushing_a_silent_layer_costs_nothing() {
+        // The intro arranges no drums, so there is nothing to spend on.
+        let mut sim = playing(3);
+        run(&mut sim, 1.0, &holding(Instrument::Drums), |_| true);
+        assert!((sim.hush() - 1.0).abs() < 1e-6);
+        assert!(!sim.music().layers[Instrument::Drums.index()].muted);
+    }
+
+    #[test]
+    fn holding_two_spends_twice_as_fast() {
+        let mut sim = playing(3);
+        run(&mut sim, 0.5, &InputFrame::default(), |_| true);
+        let mut both = InputFrame::default();
+        both.hold_layer[Instrument::Bass.index()] = true;
+        both.hold_layer[Instrument::Lead.index()] = true;
+        run(&mut sim, 1.0, &both, |_| true);
+        let spent = 1.0 - sim.hush();
+        assert!(
+            2.0_f32.mul_add(-HUSH_DRAIN, spent).abs() < 0.03,
+            "spent {spent}"
+        );
     }
 
     #[test]
@@ -1299,70 +1555,62 @@ mod tests {
         let mut sim = playing(3);
         run_to_section(&mut sim, 1);
         assert!(sim.magnet_on());
-        run(&mut sim, 1.0, &InputFrame::default(), |_| true);
-        let nearby = sim
-            .sparks()
-            .iter()
-            .position(|s| (s.body.pos - sim.player().body.pos).length() < MAGNET_RADIUS);
-        let Some(index) = nearby else {
-            // Put one in reach ourselves.
-            let pos = sim.player().body.pos + Vec2::new(MAGNET_RADIUS * 0.6, 0.0);
-            sim.sparks.push(Spark {
-                body: Body::at(pos),
-                pitch: 60,
-                life: 10.0,
-                max_life: 10.0,
-            });
-            let before = (pos - sim.player().body.pos).length();
-            sim.advance(TICK_DT * 10.0, &InputFrame::default());
-            let spark = sim.sparks().last().unwrap();
-            assert!((spark.body.pos - sim.player().body.pos).length() < before);
-            return;
-        };
-        let before = (sim.sparks()[index].body.pos - sim.player().body.pos).length();
-        sim.advance(TICK_DT * 5.0, &InputFrame::default());
-        // It either got closer or got eaten.
-        let now = sim
-            .sparks()
-            .get(index)
-            .map_or(0.0, |s| (s.body.pos - sim.player().body.pos).length());
-        assert!(now < before);
+        let pos = sim.player().body.pos + Vec2::new(MAGNET_RADIUS * 0.6, 0.0);
+        sim.sparks.push(Spark {
+            body: Body::at(pos),
+            pitch: 60,
+            life: 10.0,
+            max_life: 10.0,
+        });
+        let before = (pos - sim.player().body.pos).length();
+        sim.advance(TICK_DT * 10.0, &InputFrame::default());
+        let spark = sim.sparks().last().unwrap();
+        assert!((spark.body.pos - sim.player().body.pos).length() < before);
     }
 
     #[test]
-    fn everything_stays_in_bounds() {
-        let mut sim = playing(11);
-        let input = InputFrame {
-            move_dir: Vec2::new(1.0, 1.0),
-            ..InputFrame::default()
-        };
-        for tick in 0..(60 * 40) {
+    fn reaching_home_wins_and_resolves() {
+        let mut sim = playing(5);
+        sim.player.body = Body::at(HOME - Vec2::new(HOME_RADIUS + 150.0, 0.0));
+        let mut cues = Vec::new();
+        for _ in 0..(60 * 5) {
             sim.player.invuln = 10.0;
-            // Drive into a different corner every few seconds.
-            let dir = match (tick / 240) % 4 {
-                0 => Vec2::new(1.0, 1.0),
-                1 => Vec2::new(-1.0, 1.0),
-                2 => Vec2::new(-1.0, -1.0),
-                _ => Vec2::new(1.0, -1.0),
-            };
-            sim.advance(
-                TICK_DT,
-                &InputFrame {
-                    move_dir: dir,
-                    ..input
-                },
-            );
-            for pos in snapshot(&sim) {
-                assert!((0.0..=WORLD_W).contains(&pos.x), "x escaped: {}", pos.x);
-                assert!((0.0..=WORLD_H).contains(&pos.y), "y escaped: {}", pos.y);
+            sim.advance(TICK_DT, &moving(1.0, 0.0));
+            cues.extend_from_slice(sim.cues());
+            if sim.phase() == Phase::Won {
+                break;
             }
         }
+        assert_eq!(sim.phase(), Phase::Won);
+        assert!((sim.progress() - 1.0).abs() < 1e-6);
+        let at = cues.iter().position(|c| *c == Cue::Home).expect("home cue");
+        // Resolves on the motif's home chord, cued just before.
+        assert_eq!(cues[at - 1], Cue::Chord(sim.motif().tonic()));
+        assert_eq!(sim.chord(), Some(sim.motif().tonic()));
+
+        // Won means done: no more ticks, no more music.
+        let more = run(&mut sim, 2.0, &moving(1.0, 0.0), |_| true);
+        assert_eq!(more, 0);
+    }
+
+    #[test]
+    fn progress_tracks_the_way_home() {
+        let mut sim = playing(5);
+        assert!(sim.progress().abs() < 1e-6);
+        sim.player.body = Body::at(Vec2::new(HOME_DISTANCE * 0.5, 300.0));
+        sim.advance(0.0, &InputFrame::default());
+        assert!((sim.progress() - 0.5).abs() < 1e-3);
+        sim.player.body = Body::at(Vec2::new(-500.0, 0.0));
+        assert!(
+            sim.progress().abs() < 1e-6,
+            "walking backwards is not negative progress"
+        );
     }
 
     #[test]
     fn restart_replaces_the_world_and_skips_the_title() {
         let mut sim = playing(5);
-        run(&mut sim, 5.0, &InputFrame::default(), |_| true);
+        run(&mut sim, 5.0, &moving(1.0, 0.0), |_| true);
         sim.advance(
             TICK_DT,
             &InputFrame {
@@ -1372,10 +1620,10 @@ mod tests {
         );
         assert_eq!(sim.seed(), 6);
         assert_eq!(sim.phase(), Phase::Playing);
-        assert_eq!(sim.score(), 0);
-        assert_eq!(sim.lives(), LIVES);
+        assert_eq!(sim.hearts(), MAX_HEARTS);
         assert_eq!(sim.cues().first(), Some(&Cue::Restart));
         assert_eq!(sim.music().section, 0);
+        assert!(sim.progress() < 0.01);
     }
 
     #[test]
@@ -1421,9 +1669,11 @@ mod tests {
             .map(|s| s.motif.bar_secs() * BARS_PER_SECTION as f32)
             .sum();
         let mut sections = 0;
-        for _ in 0..((total + 1.0) * 60.0) as u32 {
+        for tick in 0..((total + 1.0) * 60.0) as u32 {
             sim.player.invuln = 10.0;
-            sim.advance(TICK_DT, &InputFrame::default());
+            // Wander about, so sparks and walls get exercised.
+            let dir = Vec2::from_angle(tick as f32 * 0.01);
+            sim.advance(TICK_DT, &moving(dir.x, dir.y));
             sections += sim
                 .cues()
                 .iter()
@@ -1438,13 +1688,7 @@ mod tests {
     #[test]
     fn interpolation_walks_from_prev_to_current() {
         let mut sim = playing(9);
-        sim.advance(
-            TICK_DT * 4.0,
-            &InputFrame {
-                move_dir: Vec2::new(1.0, 0.0),
-                ..InputFrame::default()
-            },
-        );
+        sim.advance(TICK_DT * 4.0, &moving(1.0, 0.0));
         let body = sim.player().body;
         assert_eq!(body.interpolated(0.0), body.prev_pos);
         assert_eq!(body.interpolated(1.0), body.pos);
@@ -1453,8 +1697,12 @@ mod tests {
 
     #[test]
     fn lanes_cover_every_wall() {
-        let lanes: std::collections::BTreeSet<usize> = (0..12).map(lane_of).collect();
+        let lanes: std::collections::BTreeSet<usize> = (0..12).map(lane_of_pitch).collect();
         assert_eq!(lanes.len(), WALL_LANES);
         assert!(lanes.iter().all(|&lane| lane < WALL_LANES));
+        for k in -8..8 {
+            assert!(lane_of_wall(k) < WALL_LANES);
+        }
+        assert_eq!(lane_of_wall(-1), WALL_LANES - 1);
     }
 }

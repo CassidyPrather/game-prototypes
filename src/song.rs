@@ -9,7 +9,7 @@
 //! The song is a loop of [`Section`]s. Each section is one four-bar phrase
 //! of a [`Motif`] (a theme, with its own key, tempo and character) played by
 //! some subset of the four [`Instrument`]s (the arrangement). On top of the
-//! arrangement, the player may mute any instrument; both decide whether a
+//! arrangement, the sim may hush any instrument; both decide whether a
 //! layer is *active*, and only active layers emit events.
 //!
 //! Everything here is deterministic: the sequencer advances by sim ticks
@@ -122,6 +122,12 @@ impl Motif {
     #[must_use]
     pub const fn bar_secs(self) -> f32 {
         self.beat_secs() * BEATS_PER_BAR as f32
+    }
+
+    /// The chord the motif comes home to: the first bar's pad chord.
+    #[must_use]
+    pub const fn tonic(self) -> Chord {
+        self.score().pad[0]
     }
 
     /// Lowest and highest lead pitch this motif uses, for mapping pitch
@@ -410,7 +416,7 @@ pub enum Event {
     Chord(Chord),
     /// A new section began.
     Section { motif: Motif },
-    /// A requested mute or unmute took effect, at the top of a bar.
+    /// An instrument was hushed or let sound again.
     Layer { instrument: Instrument, on: bool },
 }
 
@@ -419,10 +425,8 @@ pub enum Event {
 pub struct Layer {
     /// The arrangement includes this instrument in the current section.
     pub arranged: bool,
-    /// The player has muted it.
+    /// The player is hushing it.
     pub muted: bool,
-    /// A mute toggle is queued for the next bar.
-    pub pending: bool,
 }
 
 impl Layer {
@@ -469,8 +473,6 @@ pub struct Sequencer {
     clock: f32,
     started: bool,
     muted: [bool; 4],
-    /// Mute flips to apply at the next bar. Requesting twice cancels.
-    pending: [bool; 4],
     /// Jump to the next section at the next bar.
     skip: bool,
 }
@@ -492,7 +494,6 @@ impl Sequencer {
             clock: 0.0,
             started: false,
             muted: [false; 4],
-            pending: [false; 4],
             skip: false,
         }
     }
@@ -525,12 +526,26 @@ impl Sequencer {
             .count() as u32
     }
 
-    /// Queue a mute toggle for the next bar. Toggling changes quantise to
-    /// the bar so the music never stumbles; a second request before the bar
-    /// arrives cancels the first.
-    pub const fn request_toggle(&mut self, instrument: Instrument) {
+    /// Hush or unhush an instrument, effective immediately. Notes already
+    /// sounding are the frontend's to finish; new ones stop at once, the
+    /// way a kill switch works. Appends a [`Event::Layer`] if anything
+    /// changed.
+    pub fn set_muted(&mut self, instrument: Instrument, muted: bool, events: &mut Vec<Event>) {
         let i = instrument.index();
-        self.pending[i] = !self.pending[i];
+        if self.muted[i] == muted {
+            return;
+        }
+        self.muted[i] = muted;
+        events.push(Event::Layer {
+            instrument,
+            on: !muted,
+        });
+    }
+
+    /// Whether the player is hushing an instrument.
+    #[must_use]
+    pub const fn is_muted(&self, instrument: Instrument) -> bool {
+        self.muted[instrument.index()]
     }
 
     /// Queue a jump to the next section at the next bar.
@@ -548,7 +563,6 @@ impl Sequencer {
             layers[i] = Layer {
                 arranged: section.arranged[i],
                 muted: self.muted[i],
-                pending: self.pending[i],
             };
         }
         Position {
@@ -587,18 +601,6 @@ impl Sequencer {
         self.step += 1;
         if self.step % STEPS_PER_BAR != 0 {
             return;
-        }
-        // Top of a bar: queued mutes land here.
-        for instrument in Instrument::ALL {
-            let i = instrument.index();
-            if self.pending[i] {
-                self.pending[i] = false;
-                self.muted[i] = !self.muted[i];
-                events.push(Event::Layer {
-                    instrument,
-                    on: !self.muted[i],
-                });
-            }
         }
         if self.skip || self.step >= STEPS_PER_SECTION {
             self.skip = false;
@@ -831,50 +833,45 @@ mod tests {
     }
 
     #[test]
-    fn mutes_land_on_the_bar() {
+    fn hushing_is_immediate_and_announced() {
         let mut seq = Sequencer::new();
         run(&mut seq, 0.1);
-        seq.request_toggle(Instrument::Lead);
-        assert!(
-            seq.is_active(Instrument::Lead),
-            "mute applied before the bar"
+        let mut events = Vec::new();
+        seq.set_muted(Instrument::Lead, true, &mut events);
+        assert_eq!(
+            events,
+            [Event::Layer {
+                instrument: Instrument::Lead,
+                on: false
+            }]
         );
-        assert!(seq.position().layers[Instrument::Lead.index()].pending);
-
-        let events = run(&mut seq, SONG[0].motif.bar_secs());
-        assert!(events.contains(&Event::Layer {
-            instrument: Instrument::Lead,
-            on: false
-        }));
         assert!(!seq.is_active(Instrument::Lead));
+        assert!(seq.position().layers[Instrument::Lead.index()].muted);
 
-        // Nothing from the lead once it is muted.
+        // Nothing from the lead while it is hushed; the bass carries on.
         let events = run(&mut seq, SONG[0].motif.bar_secs());
         assert!(notes_for(&events, Instrument::Lead).is_empty());
         assert!(!notes_for(&events, Instrument::Bass).is_empty());
+
+        // Letting go announces itself once, and repeating it says nothing.
+        let mut events = Vec::new();
+        seq.set_muted(Instrument::Lead, false, &mut events);
+        seq.set_muted(Instrument::Lead, false, &mut events);
+        assert_eq!(events.len(), 1);
+        assert!(seq.is_active(Instrument::Lead));
     }
 
     #[test]
-    fn toggling_twice_before_the_bar_cancels() {
+    fn hushing_does_not_override_the_arrangement() {
         let mut seq = Sequencer::new();
         run(&mut seq, 0.1);
-        seq.request_toggle(Instrument::Bass);
-        seq.request_toggle(Instrument::Bass);
-        let events = run(&mut seq, SONG[0].motif.bar_secs());
-        assert!(!events.iter().any(|e| matches!(e, Event::Layer { .. })));
-        assert!(seq.is_active(Instrument::Bass));
-    }
-
-    #[test]
-    fn mutes_do_not_override_the_arrangement() {
-        let mut seq = Sequencer::new();
-        run(&mut seq, 0.1);
-        // Section 0 has no drums; unmuting cannot conjure them.
+        // Section 0 has no drums; unhushing cannot conjure them.
         assert!(!seq.is_active(Instrument::Drums));
-        seq.request_toggle(Instrument::Drums);
-        let events = run(&mut seq, SONG[0].motif.bar_secs() + 0.05);
+        seq.set_muted(Instrument::Drums, false, &mut Vec::new());
+        let events = run(&mut seq, SONG[0].motif.bar_secs());
         assert!(notes_for(&events, Instrument::Drums).is_empty());
-        // And once muted, they stay muted into the section that has them.
+        // And a hush held into the section that has them keeps them quiet.
+        seq.set_muted(Instrument::Drums, true, &mut Vec::new());
         let phrase = SONG[0].motif.bar_secs() * BARS_PER_SECTION as f32;
         let events = run(&mut seq, phrase);
         assert_eq!(seq.position().section, 1);

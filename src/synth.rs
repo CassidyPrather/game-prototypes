@@ -199,6 +199,21 @@ fn sample_count(secs: f32) -> usize {
     (secs * SAMPLE_RATE as f32) as usize
 }
 
+/// Pull the samples back out of a WAV from this module, the way a decoder
+/// would.
+///
+/// 16-bit little-endian PCM after the 44-byte header, scaled to `-1..=1`.
+/// The offline mixer renders through this so what it measures is what the
+/// backend plays.
+#[must_use]
+pub fn decode(wav: &[u8]) -> Vec<f32> {
+    wav.get(44..)
+        .unwrap_or_default()
+        .chunks_exact(2)
+        .map(|pair| f32::from(i16::from_le_bytes([pair[0], pair[1]])) / f32::from(i16::MAX))
+        .collect()
+}
+
 /// Wrap mono `f32` samples as a 16-bit PCM WAV.
 ///
 /// Hand-rolled because the format's uncompressed case is a 44-byte header and
