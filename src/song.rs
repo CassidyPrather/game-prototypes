@@ -414,6 +414,8 @@ pub enum Event {
     },
     /// The pad changed chord, at the top of a bar.
     Chord(Chord),
+    /// A bar began. Structure, not sound: it fires whatever is playing.
+    Bar { bar: u32 },
     /// A new section began.
     Section { motif: Motif },
     /// An instrument was hushed or let sound again.
@@ -617,6 +619,12 @@ impl Sequencer {
         let score = self.motif().score();
         let step = self.step % STEPS_PER_BAR;
         let velocity = accent(step);
+
+        if step == 0 {
+            events.push(Event::Bar {
+                bar: self.step / STEPS_PER_BAR,
+            });
+        }
 
         if self.is_active(Instrument::Drums) {
             for (pattern, pitch, gain) in [
@@ -889,6 +897,25 @@ mod tests {
         }));
         assert_eq!(seq.position().section, 1);
         assert_eq!(seq.position().step, 0);
+    }
+
+    #[test]
+    fn every_bar_announces_itself_whatever_is_playing() {
+        let mut seq = Sequencer::new();
+        for instrument in Instrument::ALL {
+            seq.set_muted(instrument, true, &mut Vec::new());
+        }
+        let phrase = SONG[0].motif.bar_secs() * BARS_PER_SECTION as f32;
+        let events = run(&mut seq, phrase + 0.05);
+        let bars: Vec<u32> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::Bar { bar } => Some(*bar),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(bars, [0, 1, 2, 3, 0]);
+        assert!(!events.iter().any(|e| matches!(e, Event::Note { .. })));
     }
 
     #[test]

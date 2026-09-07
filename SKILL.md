@@ -21,11 +21,12 @@ Built on Cassidy's game-template. Code is AGPL-3.0-or-later.
   unit-tested, holds no clock of its own. Also lists every pitch and chord
   used, for the frontend to bake.
 - `src/sim.rs` — the world. Pure, deterministic, no macroquad. Turns song
-  events into behaviour (kicks move stompers, bass raises walls, lead drops
-  sparks, pad pulls sparks in; the motif sets the rules; holding a key
-  hushes an instrument from a refilling pool) and forwards them, plus the
-  game's own events, as `Cue`s. Unbounded: walls repeat on a grid, stompers
-  respawn near the player. Most work belongs here or in `song`.
+  events into behaviour (kicks move stompers, snares slam gates, hats turn
+  spinners, bass raises walls, lead drops strikes, the pad charges the
+  fermata; the motif sets the rules and the stompers' telegraphed moves)
+  and forwards them, plus the game's own events, as `Cue`s. Unbounded:
+  walls repeat on a grid, stompers respawn near the player. Most work
+  belongs here or in `song`.
 - `src/mix.rs` — what a cue sounds like. The cue-to-voice-and-gain policy
   the frontend plays through, and an offline `Mixer` whose tests render the
   whole song and fail if the sum nears full scale. Tune `MASTER` here.
@@ -74,8 +75,9 @@ run, and rendering interpolates between the last two states using an alpha.
 
 The sequencer is part of that contract. It is advanced by the sim, one tick
 at a time, and never reads a clock; the music is as replayable as the world.
-Hushing is immediate (a kill switch, not a fade) and is gated by the sim's
-pool; skipping a section lands on the next bar.
+The fermata (holding Space) stops the sequencer and everything it drives
+while the player keeps moving; it is gated by the sim's pool, which only
+refills under the pad. Skipping a section lands on the next bar.
 
 Do not read wall-clock time, macroquad state, or randomness from inside
 `src/sim.rs` or `src/song.rs`. If the frontend needs to tell the sim
@@ -88,16 +90,23 @@ says what happened and how hard, never what it should sound like. Cues live
 for one `advance()` and are cleared by the next.
 
 The rule that makes the prototype honest: the sim and the audio consume the
-*same* note events. If a layer is hushed or not arranged, it emits nothing,
-so it neither sounds nor acts. Keep it that way — never let the world react
-to a note the player cannot hear, or play one the world ignores (hats being
-the one deliberate exception: audible, inert).
+*same* note events. If a layer is not arranged, or the music is held, it
+emits nothing, so it neither sounds nor acts. Keep it that way — never let
+the world react to a note the player cannot hear, or play one the world
+ignores. Every hazard is telegraphed by something audible: the note that
+drops a strike, the snare that slams the gates, the riser before a dash.
 
 The mix is measured, not hoped for. Gains live in `src/mix.rs`, never in
 `audio.rs`, so the tests that render the song offline see the same numbers
 the speakers do. Add a voice or raise a gain and run the mix tests; if the
 song's peak goes over the headroom, lower `MASTER` or the voice, do not
-raise the headroom.
+raise the headroom. Keep the game's own sounds few and in key: bells on the
+motif's home note, or unpitched noise. Nothing that clashes with the band.
+
+Difficulty is tested too. `holding_right_and_weaving_does_not_get_you_home`
+is the floor and `a_careful_player_can_still_get_home` the ceiling; the
+ignored `trace_the_careful_bot` prints where the bot goes and what it dies
+of, for tuning.
 
 The wider rule: any module that imports macroquad is untestable — macroquad's
 globals panic under `cargo test` (a thread assert), they do not fail politely.

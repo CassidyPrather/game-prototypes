@@ -43,30 +43,35 @@ pub fn kick() -> Vec<u8> {
     }))
 }
 
-/// Snare: a burst of noise over a short tone, both dying fast.
+/// Snare: a body of tone that drops in pitch under a short rattle of
+/// lowpassed noise. The tone is what keeps it from reading as static.
 #[must_use]
 pub fn snare() -> Vec<u8> {
     let mut rng = fastrand::Rng::with_seed(NOISE_SEED);
-    let mut lp = 0.0;
-    wav(&render(0.18, |t| {
+    let mut lp = (0.0, 0.0);
+    let mut phase = 0.0;
+    wav(&render(0.16, |t| {
         let noise = rng.f32().mul_add(2.0, -1.0);
-        lp = (noise - lp).mul_add(0.5, lp);
-        let rattle = lp * (-t * 24.0).exp();
-        let tone = (TAU * 190.0 * t).sin() * (-t * 40.0).exp() * 0.5;
-        (rattle + tone) * 0.8
+        lp.0 = (noise - lp.0).mul_add(0.35, lp.0);
+        lp.1 = (lp.0 - lp.1).mul_add(0.35, lp.1);
+        let rattle = lp.1 * (-t * 28.0).exp() * 1.6;
+        let freq = 110.0_f32.mul_add((-t * 30.0).exp(), 150.0);
+        phase += TAU * freq / SAMPLE_RATE as f32;
+        let body = phase.sin() * (-t * 22.0).exp() * 0.7;
+        (rattle + body) * 0.8
     }))
 }
 
-/// Hat: a tick of bright noise. Highpassed by subtracting a lowpass, which
-/// is as much filter design as a hat deserves.
+/// Hat: a short tick of bright noise, highpassed by subtracting a lowpass
+/// and gone before it can fizz.
 #[must_use]
 pub fn hat() -> Vec<u8> {
     let mut rng = fastrand::Rng::with_seed(NOISE_SEED);
     let mut lp = 0.0;
-    wav(&render(0.06, |t| {
+    wav(&render(0.04, |t| {
         let noise = rng.f32().mul_add(2.0, -1.0);
-        lp = (noise - lp).mul_add(0.3, lp);
-        (noise - lp) * (-t * 70.0).exp() * 0.6
+        lp = (noise - lp).mul_add(0.4, lp);
+        (noise - lp) * (-t * 110.0).exp() * 0.5
     }))
 }
 
@@ -133,46 +138,57 @@ pub fn pad(hz: &[f32]) -> Vec<u8> {
     }))
 }
 
-/// Pickup: a bright bell, an octave and a fifth of partials.
+/// Bell: a struck tone at `hz` with a stretched octave and twelfth over it,
+/// the partials of a small bell, ringing out over a second. Always played
+/// in the current key, so it belongs to the song.
 #[must_use]
-pub fn chime() -> Vec<u8> {
-    wav(&render(0.35, |t| {
-        let a = (TAU * 1318.5 * t).sin();
-        let b = (TAU * 2637.0 * t).sin() * 0.4;
-        let c = (TAU * 1976.0 * t).sin() * 0.25;
-        (a + b + c) * (-t * 9.0).exp() * 0.35
+pub fn bell(hz: f32) -> Vec<u8> {
+    wav(&render(1.1, |t| {
+        let a = (TAU * hz * t).sin() * (-t * 3.0).exp();
+        let b = (TAU * hz * 2.01 * t).sin() * (-t * 5.0).exp() * 0.4;
+        let c = (TAU * hz * 3.02 * t).sin() * (-t * 8.0).exp() * 0.2;
+        (a + b + c) * 0.5
     }))
 }
 
-/// Hit: a low thud with a rasp of noise on top.
+/// Hit: a low thud, all body and no rasp.
 #[must_use]
 pub fn thump() -> Vec<u8> {
-    let mut rng = fastrand::Rng::with_seed(NOISE_SEED);
     let mut phase = 0.0;
-    wav(&render(0.35, |t| {
-        let freq = 90.0_f32.mul_add((-t * 14.0).exp(), 38.0);
+    wav(&render(0.3, |t| {
+        let freq = 80.0_f32.mul_add((-t * 16.0).exp(), 40.0);
         phase += TAU * freq / SAMPLE_RATE as f32;
-        let body = phase.sin() * (-t * 7.0).exp();
-        let rasp = rng.f32().mul_add(2.0, -1.0) * (-t * 30.0).exp() * 0.4;
-        (body + rasp) * 0.9
+        phase.sin() * (-t * 8.0).exp() * 0.9
     }))
 }
 
-/// Pause and unpause. `rising` picks the direction the pitch slides, so the
-/// two states are distinguishable without looking at the screen.
+/// Breath: a swell of lowpassed noise, in and out. The fermata taking hold.
 #[must_use]
-pub fn blip(rising: bool) -> Vec<u8> {
-    const SECS: f32 = 0.08;
-    let (from, to): (f32, f32) = if rising {
-        (520.0, 880.0)
-    } else {
-        (880.0, 520.0)
-    };
+pub fn breath() -> Vec<u8> {
+    const SECS: f32 = 0.5;
+    let mut rng = fastrand::Rng::with_seed(NOISE_SEED);
+    let mut lp = (0.0, 0.0);
+    wav(&render(SECS, |t| {
+        let noise = rng.f32().mul_add(2.0, -1.0);
+        lp.0 = (noise - lp.0).mul_add(0.12, lp.0);
+        lp.1 = (lp.0 - lp.1).mul_add(0.12, lp.1);
+        let envelope = (TAU * 0.5 * t / SECS).sin();
+        lp.1 * envelope * 3.0
+    }))
+}
+
+/// Riser: a tone climbing an octave with a tremble on it. Something is
+/// about to happen.
+#[must_use]
+pub fn riser() -> Vec<u8> {
+    const SECS: f32 = 0.45;
     let mut phase = 0.0;
     wav(&render(SECS, |t| {
-        let freq = (to - from).mul_add(t / SECS, from);
+        let freq = 220.0_f32.mul_add(t / SECS, 220.0);
         phase += TAU * freq / SAMPLE_RATE as f32;
-        phase.sin() * (-t * 16.0).exp() * 0.5
+        let tremble = 0.3_f32.mul_add((TAU * 14.0 * t).sin(), 0.7);
+        let envelope = (t / SECS).sqrt() * (1.0 - t / SECS).sqrt();
+        phase.sin() * tremble * envelope * 0.55
     }))
 }
 
@@ -262,10 +278,10 @@ mod tests {
             ("kick".to_owned(), kick()),
             ("snare".to_owned(), snare()),
             ("hat".to_owned(), hat()),
-            ("chime".to_owned(), chime()),
+            ("bell".to_owned(), bell(523.25)),
             ("thump".to_owned(), thump()),
-            ("blip up".to_owned(), blip(true)),
-            ("blip down".to_owned(), blip(false)),
+            ("breath".to_owned(), breath()),
+            ("riser".to_owned(), riser()),
         ];
         for pitch in song::pitches(Instrument::Bass) {
             out.push((format!("bass {pitch}"), bass(song::hertz(pitch))));
@@ -354,6 +370,7 @@ mod tests {
         for (name, bytes, hz) in [
             ("bass", bass(110.0), 110.0_f32),
             ("pluck", pluck(440.0), 440.0),
+            ("bell", bell(523.25), 523.25),
         ] {
             let samples: Vec<f32> = decode(&bytes).iter().map(|&s| f32::from(s)).collect();
             let start = SAMPLE_RATE as usize / 20;
@@ -385,6 +402,7 @@ mod tests {
         // The noise voices seed a fixed RNG; two builds must agree.
         assert_eq!(kick(), kick());
         assert_eq!(snare(), snare());
+        assert_eq!(breath(), breath());
         assert_eq!(pluck(330.0), pluck(330.0));
     }
 }

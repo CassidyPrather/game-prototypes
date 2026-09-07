@@ -6,9 +6,10 @@
 //!
 //! There is no text. The HUD is built from the same shapes the world is
 //! made of — a stomper stands for the drums that move it, a wall for the
-//! bass, a spark for the lead, a ring for the pad — plus key caps, so it
-//! reads without reading. The camera follows the player through an
-//! unbounded world; the HUD lives in a fixed letterboxed frame.
+//! bass, a strike for the lead, a fermata for the pad that charges it —
+//! plus key caps, so it reads without reading. The camera follows the
+//! player through an unbounded world; the HUD lives in a fixed letterboxed
+//! frame.
 
 mod audio;
 
@@ -27,8 +28,9 @@ use macroquad::time::get_frame_time;
 use macroquad::window::{Conf, clear_background, next_frame, screen_height, screen_width};
 
 use leitmotif::sim::{
-    self, Cue, HOME, HOME_RADIUS, InputFrame, MAGNET_RADIUS, MAX_HEARTS, PLAYER_RADIUS, Phase,
-    SPARK_RADIUS, STOMPER_RADIUS, Sim, Vec2, WALL_GAP, WALL_HALF_W, WALL_PERIOD_Y, WALL_SPACING,
+    self, Act, Cue, HOME, HOME_RADIUS, InputFrame, MAX_HEARTS, PLAYER_RADIUS, Phase,
+    SPINNER_HALF_LEN, SPINNER_HALF_W, STOMPER_RADIUS, STRIKE_RADIUS, Sim, Vec2, WALL_GAP,
+    WALL_HALF_W, WALL_PERIOD_Y, WALL_SPACING,
 };
 use leitmotif::song::{BEATS_PER_BAR, Instrument, Layer, Motif, SONG, STEPS_PER_BAR};
 
@@ -50,6 +52,8 @@ const PLAYER: Color = Color::new(0.95, 0.95, 1.0, 1.0);
 const HEART: Color = Color::new(0.95, 0.35, 0.45, 1.0);
 const SHADE: Color = Color::new(0.0, 0.0, 0.0, 0.6);
 const HOME_GLOW: Color = Color::new(0.6, 1.0, 0.8, 1.0);
+/// Everything the fermata touches goes this colour while it holds.
+const HELD: Color = Color::new(0.75, 0.85, 1.0, 1.0);
 
 /// How fast the camera closes on its target, per second.
 const CAMERA_CHASE: f32 = 6.0;
@@ -117,14 +121,9 @@ fn gather_input() -> InputFrame {
     InputFrame {
         move_dir,
         start,
-        hold_layer: [
-            is_key_down(KeyCode::Key1),
-            is_key_down(KeyCode::Key2),
-            is_key_down(KeyCode::Key3),
-            is_key_down(KeyCode::Key4),
-        ],
+        hold: is_key_down(KeyCode::Space),
         next_section: is_key_pressed(KeyCode::Tab),
-        toggle_pause: is_key_pressed(KeyCode::Space),
+        toggle_pause: is_key_pressed(KeyCode::P) || is_key_pressed(KeyCode::Escape),
         restart: is_key_pressed(KeyCode::R).then(fresh_seed),
     }
 }
@@ -286,18 +285,19 @@ impl View {
         );
     }
 
-    /// A keyboard key with a character on it, centred on `p`.
-    fn key_cap(&self, ch: Option<char>, p: Vec2, size: f32, color: Color) {
-        let half = Vec2::new(size * 0.5, size * 0.5);
-        self.rect_lines(p - half * self.scale, half * 2.0, 2.0, color);
+    /// A keyboard key, `size` wide and `height` tall, centred on `p`, with
+    /// a character on it or not.
+    fn key_cap(&self, ch: Option<char>, p: Vec2, size: Vec2, color: Color) {
+        let half = size * 0.5;
+        self.rect_lines(p - half * self.scale, size, 2.0, color);
         if let Some(ch) = ch {
-            self.glyph(ch, p, size * 0.8, color);
+            self.glyph(ch, p, size.y * 0.8, color);
         }
     }
 
     /// A key cap with a solid triangle on it, pointing along `dir`.
     fn arrow_cap(&self, dir: Vec2, p: Vec2, size: f32, color: Color) {
-        self.key_cap(None, p, size, color);
+        self.key_cap(None, p, Vec2::new(size, size), color);
         let reach = size * 0.22 * self.scale;
         let across = Vec2::new(-dir.y, dir.x);
         let tip = p + dir * reach;
@@ -351,24 +351,27 @@ fn draw(sim: &Sim, view: &View, audio: &Audio, hud: &Hud, clock: f32) {
     let palette = palette_for(music.motif);
     let alpha = sim.alpha();
 
-    // The world breathes on the beat while something is playing.
-    let beat = if sim.phase() == Phase::Playing && !sim.is_paused() {
+    // The world breathes on the beat while something is playing, and goes
+    // cool and still while the music is held.
+    let beat = if sim.phase() == Phase::Playing && !sim.is_paused() && !sim.holding() {
         (1.0 - music.beat_phase()).powi(3) * 0.05
     } else {
         0.0
     };
     let bg = palette.background;
     clear_background(Color::new(0.0, 0.0, 0.0, 1.0));
-    view.rect(
-        view.hud(Vec2::ZERO),
-        Vec2::new(VIEW_W, VIEW_H),
-        Color::new(bg.r + beat, bg.g + beat, bg.b + beat, 1.0),
-    );
+    let ground = if sim.holding() {
+        Color::new(bg.r * 0.6, bg.g * 0.7, bg.b.mul_add(0.8, 0.06), 1.0)
+    } else {
+        Color::new(bg.r + beat, bg.g + beat, bg.b + beat, 1.0)
+    };
+    view.rect(view.hud(Vec2::ZERO), Vec2::new(VIEW_W, VIEW_H), ground);
 
     draw_ground(view, &palette);
     draw_walls(sim, view, &palette);
+    draw_spinners(sim, view, &palette);
     draw_home(view, clock);
-    draw_sparks(sim, view, alpha);
+    draw_strikes(sim, view);
     draw_stompers(sim, view, alpha, &palette);
     draw_player(sim, view, alpha);
     draw_way_home(sim, view, clock);
@@ -405,13 +408,22 @@ fn draw_ground(view: &View, palette: &Palette) {
     }
 }
 
-fn draw_walls(sim: &Sim, view: &View, palette: &Palette) {
+/// Wall grid indices that touch the frame: `(first_k, last_k, first_m,
+/// last_m)`.
+fn visible_grid(view: &View) -> (i32, i32, i32, i32) {
     let (top_left, size) = view.visible();
-    let first_k = ((top_left.x - WALL_HALF_W) / WALL_SPACING).floor() as i32;
-    let last_k = ((top_left.x + size.x + WALL_HALF_W) / WALL_SPACING).ceil() as i32;
-    let first_m = (top_left.y / WALL_PERIOD_Y).floor() as i32 - 1;
-    let last_m = ((top_left.y + size.y) / WALL_PERIOD_Y).ceil() as i32;
+    (
+        ((top_left.x - WALL_SPACING) / WALL_SPACING).floor() as i32,
+        ((top_left.x + size.x + WALL_SPACING) / WALL_SPACING).ceil() as i32,
+        (top_left.y / WALL_PERIOD_Y).floor() as i32 - 1,
+        ((top_left.y + size.y) / WALL_PERIOD_Y).ceil() as i32,
+    )
+}
+
+fn draw_walls(sim: &Sim, view: &View, palette: &Palette) {
+    let (first_k, last_k, first_m, last_m) = visible_grid(view);
     let segment = WALL_PERIOD_Y - WALL_GAP;
+    let gates = sim.gates();
     for k in first_k..=last_k {
         let x = sim::wall_x(k);
         let solidity = sim.walls()[sim::lane_of_wall(k)];
@@ -441,6 +453,46 @@ fn draw_walls(sim: &Sim, view: &View, palette: &Palette) {
                 Vec2::new(WALL_HALF_W * 2.0, half * 2.0),
                 colour,
             );
+            // The gate: two jaws closing across the gap below this segment
+            // on every snare, while the wall stands.
+            if !sim::wall_is_solid(solidity) || gates <= 0.0 {
+                continue;
+            }
+            let gap_top = top + segment;
+            let jaw = WALL_GAP * 0.5 * gates.sqrt();
+            let jaw_colour = with_alpha(HEART, gates.mul_add(0.5, 0.4));
+            view.rect(
+                view.world(Vec2::new(x - WALL_HALF_W, gap_top)),
+                Vec2::new(WALL_HALF_W * 2.0, jaw),
+                jaw_colour,
+            );
+            view.rect(
+                view.world(Vec2::new(x - WALL_HALF_W, gap_top + WALL_GAP - jaw)),
+                Vec2::new(WALL_HALF_W * 2.0, jaw),
+                jaw_colour,
+            );
+        }
+    }
+}
+
+/// The bars between the walls, turning on the hats.
+fn draw_spinners(sim: &Sim, view: &View, palette: &Palette) {
+    let (first_k, last_k, first_m, last_m) = visible_grid(view);
+    let along = Vec2::from_angle(sim.spin());
+    let colour = if sim.holding() {
+        with_alpha(HELD, 0.7)
+    } else {
+        with_alpha(palette.stomper, 0.85)
+    };
+    for k in first_k..=last_k {
+        for m in first_m..=last_m {
+            let Some(centre) = sim::spinner_at(k, m) else {
+                continue;
+            };
+            let a = view.world(centre - along * SPINNER_HALF_LEN);
+            let b = view.world(centre + along * SPINNER_HALF_LEN);
+            view.line(a, b, SPINNER_HALF_W * 2.0, colour);
+            view.circle(view.world(centre), SPINNER_HALF_W * 1.6, colour);
         }
     }
 }
@@ -497,31 +549,90 @@ fn draw_way_home(sim: &Sim, view: &View, clock: f32) {
     }
 }
 
-fn spark_colour(pitch: u8) -> Color {
+fn strike_colour(pitch: u8) -> Color {
     hsl_to_rgb(f32::from(pitch % 12) / 12.0, 0.8, 0.65)
 }
 
-fn draw_sparks(sim: &Sim, view: &View, alpha: f32) {
-    for spark in sim.sparks() {
-        let p = view.world(spark.body.interpolated(alpha));
-        let fade = spark.fade();
-        let colour = spark_colour(spark.pitch);
-        view.circle(p, SPARK_RADIUS * 2.2, with_alpha(colour, 0.12 * fade));
+/// A strike: a ring that closes on its target over a beat, then a flash.
+fn draw_strikes(sim: &Sim, view: &View) {
+    for strike in sim.strikes() {
+        let p = view.world(strike.pos);
+        let colour = if sim.holding() {
+            HELD
+        } else {
+            strike_colour(strike.pitch)
+        };
+        if strike.bursting() {
+            view.circle(p, STRIKE_RADIUS, with_alpha(colour, 0.85));
+            view.ring(p, STRIKE_RADIUS * 1.3, 2.0, with_alpha(colour, 0.5));
+            continue;
+        }
+        let closing = strike.closing();
+        // The footprint it will burst over, filling as the fuse burns.
         view.circle(
             p,
-            SPARK_RADIUS,
-            with_alpha(colour, fade.mul_add(0.65, 0.35)),
+            STRIKE_RADIUS,
+            with_alpha(colour, closing.mul_add(0.25, 0.05)),
+        );
+        view.ring(p, STRIKE_RADIUS, 1.5, with_alpha(colour, 0.6));
+        // And the ring closing in from outside.
+        let radius = STRIKE_RADIUS * (1.0 - closing).mul_add(2.0, 1.0);
+        view.ring(
+            p,
+            radius,
+            2.0,
+            with_alpha(colour, closing.mul_add(0.6, 0.3)),
         );
     }
 }
 
 fn draw_stompers(sim: &Sim, view: &View, alpha: f32, palette: &Palette) {
     let asleep = sim.motif() == Motif::Lullaby;
+    let body_colour = if sim.holding() { HELD } else { palette.stomper };
     for stomper in sim.stompers() {
         let p = view.world(stomper.body.interpolated(alpha));
         let radius = STOMPER_RADIUS * stomper.pulse.mul_add(0.35, 1.0);
-        view.circle(p, radius * 1.5, with_alpha(palette.stomper, 0.12));
-        view.circle(p, radius, palette.stomper);
+        match stomper.act {
+            Act::WindingUp { aim, .. } => {
+                // The line it will run down, growing bolder as the beat
+                // runs out.
+                let far = p + aim * (600.0 * view.scale);
+                view.line(
+                    p,
+                    far,
+                    3.0,
+                    with_alpha(HEART, stomper.windup.mul_add(0.6, 0.2)),
+                );
+                view.ring(
+                    p,
+                    radius * stomper.windup.mul_add(1.2, 1.0),
+                    2.0,
+                    with_alpha(HEART, 0.8),
+                );
+            }
+            Act::Dashing { aim, .. } => {
+                // A streak behind it.
+                view.line(
+                    p,
+                    p - aim * (60.0 * view.scale),
+                    radius * 1.2,
+                    with_alpha(body_colour, 0.35),
+                );
+            }
+            Act::Swelling { .. } => {
+                // Swelling up to the size of the wave it is about to make.
+                let reach = stomper.windup * sim::SHOCK_RADIUS;
+                view.ring(p, reach.max(radius), 2.0, with_alpha(HEART, 0.5));
+                view.circle(p, reach.max(radius), with_alpha(HEART, 0.08));
+            }
+            Act::Shocking { .. } => {
+                let ring = stomper.shock_radius();
+                view.ring(p, ring, 14.0, with_alpha(HEART, 0.55));
+            }
+            Act::Idle => {}
+        }
+        view.circle(p, radius * 1.5, with_alpha(body_colour, 0.12));
+        view.circle(p, radius, body_colour);
         if asleep {
             // Closed eyes: two short lines.
             let eye = Vec2::new(radius * 0.35 * view.scale, -radius * 0.15 * view.scale);
@@ -529,10 +640,10 @@ fn draw_stompers(sim: &Sim, view: &View, alpha: f32, palette: &Palette) {
             view.line(p - eye - w, p - eye + w, 2.0, with_alpha(PLAYER, 0.5));
             let eye = Vec2::new(-eye.x, eye.y);
             view.line(p - eye - w, p - eye + w, 2.0, with_alpha(PLAYER, 0.5));
-        } else if sim.motif() == Motif::Wander {
+        } else if sim.motif() == Motif::Wander && stomper.act == Act::Idle {
             // Show where the next kick will send it.
             let tip = p + stomper.heading * ((radius + 10.0) * view.scale);
-            view.line(p, tip, 2.0, with_alpha(palette.stomper, 0.6));
+            view.line(p, tip, 2.0, with_alpha(body_colour, 0.6));
         }
     }
 }
@@ -540,9 +651,6 @@ fn draw_stompers(sim: &Sim, view: &View, alpha: f32, palette: &Palette) {
 fn draw_player(sim: &Sim, view: &View, alpha: f32) {
     let player = sim.player();
     let p = view.world(player.body.interpolated(alpha));
-    if sim.magnet_on() {
-        view.ring(p, MAGNET_RADIUS, 1.0, with_alpha(PLAYER, 0.08));
-    }
     // Blink through the grace period. The timer never goes negative, so
     // the cast cannot lose a sign.
     #[allow(clippy::cast_sign_loss)]
@@ -553,7 +661,7 @@ fn draw_player(sim: &Sim, view: &View, alpha: f32) {
     }
 }
 
-/// Top left: hearts, with the next one filling as sparks come in.
+/// Top left: hearts.
 fn draw_hearts(sim: &Sim, view: &View) {
     for i in 0..MAX_HEARTS {
         let p = view.hud(Vec2::new(
@@ -564,9 +672,6 @@ fn draw_hearts(sim: &Sim, view: &View) {
             view.circle(p, 9.0, HEART);
         } else {
             view.ring(p, 9.0, 1.5, with_alpha(HEART, 0.35));
-            if i == sim.hearts() && sim.heal_progress() > 0.0 {
-                view.arc(p, 9.0, 3.0, -90.0, 360.0 * sim.heal_progress(), HEART);
-            }
         }
     }
 }
@@ -601,7 +706,7 @@ fn draw_speaker(view: &View, audio: &Audio) {
     view.key_cap(
         Some('M'),
         p + Vec2::new(30.0 * s, 0.0),
-        18.0,
+        Vec2::new(18.0, 18.0),
         with_alpha(colour, 0.7),
     );
 }
@@ -627,10 +732,9 @@ fn motif_glyph(view: &View, motif: Motif, p: Vec2, size: f32, color: Color) {
         }
         Motif::Pursuit => {
             // An eye, open and looking: something is hunting.
-            let p_mq = to_mq(p);
             draw_ellipse_lines(
-                p_mq.x,
-                p_mq.y,
+                p.x,
+                p.y,
                 size * 0.5 * s,
                 size * 0.28 * s,
                 0.0,
@@ -643,6 +747,23 @@ fn motif_glyph(view: &View, motif: Motif, p: Vec2, size: f32, color: Color) {
             view.arc(p, size * 0.35, size * 0.16, 60.0, 240.0, color);
         }
     }
+}
+
+/// The fermata sign: an arc over a dot. The pad's icon, and the action's.
+fn fermata_glyph(view: &View, p: Vec2, size: f32, color: Color) {
+    view.arc(
+        p + Vec2::new(0.0, size * 0.2 * view.scale),
+        size * 0.5,
+        size * 0.12,
+        180.0,
+        180.0,
+        color,
+    );
+    view.circle(
+        p + Vec2::new(0.0, size * 0.1 * view.scale),
+        size * 0.11,
+        color,
+    );
 }
 
 /// The icon for what an instrument drives: the thing itself.
@@ -659,22 +780,15 @@ fn instrument_icon(view: &View, instrument: Instrument, p: Vec2, palette: &Palet
             color,
         ),
         Instrument::Lead => {
-            view.circle(p, 7.0, with_alpha(spark_colour(64), color.a));
-            view.circle(
-                p + Vec2::new(9.0 * s, -6.0 * s),
-                3.5,
-                with_alpha(spark_colour(69), color.a),
-            );
+            view.ring(p, 9.0, 1.5, with_alpha(strike_colour(64), color.a));
+            view.circle(p, 3.0, with_alpha(strike_colour(64), color.a));
         }
-        Instrument::Pad => {
-            view.ring(p, 9.0, 1.5, color);
-            view.circle(p, 2.5, color);
-        }
+        Instrument::Pad => fermata_glyph(view, p, 20.0, color),
     }
 }
 
-/// Top right: the motif, then one row per instrument — its key, its icon,
-/// lit on each note, struck through while hushed — and the hush pool.
+/// Top right: the motif, then one row per instrument — its icon, lit on
+/// each note — then the fermata pool with its key.
 fn draw_layers(sim: &Sim, view: &View, hud: &Hud, palette: &Palette, clock: f32) {
     let music = sim.music();
     let right = VIEW_W - MARGIN;
@@ -686,22 +800,20 @@ fn draw_layers(sim: &Sim, view: &View, hud: &Hud, palette: &Palette, clock: f32)
         palette.accent,
     );
 
-    let s = view.scale;
     for instrument in Instrument::ALL {
         let i = instrument.index();
         let layer: Layer = music.layers[i];
         let y = (i as f32).mul_add(30.0, MARGIN + 60.0);
         let icon = view.hud(Vec2::new(right - 18.0, y));
-        let cap = view.hud(Vec2::new(right - 52.0, y));
         let lit = hud.lit(instrument);
         let colour = if !layer.arranged {
             with_alpha(DIM, 0.35)
-        } else if layer.muted {
-            with_alpha(DIM, 0.6)
+        } else if sim.holding() {
+            with_alpha(HELD, 0.7)
         } else {
             with_alpha(palette.accent, lit.mul_add(0.4, 0.6))
         };
-        if layer.arranged && !layer.muted && lit > 0.0 {
+        if layer.arranged && !sim.holding() && lit > 0.0 {
             view.circle(
                 icon,
                 16.0 * lit.mul_add(0.3, 1.0),
@@ -709,33 +821,21 @@ fn draw_layers(sim: &Sim, view: &View, hud: &Hud, palette: &Palette, clock: f32)
             );
         }
         instrument_icon(view, instrument, icon, palette, colour);
-        if layer.muted {
-            view.line(
-                icon + Vec2::new(-12.0 * s, 12.0 * s),
-                icon + Vec2::new(12.0 * s, -12.0 * s),
-                2.5,
-                HEART,
-            );
-        }
-        let held = sim.music().layers[i].muted;
-        let cap_colour = if held {
-            HEART
-        } else if layer.arranged {
-            with_alpha(OVERLAY, 0.8)
-        } else {
-            with_alpha(DIM, 0.4)
-        };
-        view.key_cap(Some(char::from(b'1' + i as u8)), cap, 20.0, cap_colour);
     }
 
-    // The hush pool, under the rows: what holding a key spends.
-    let bar_w = 70.0;
-    let top = Vec2::new(right - bar_w, MARGIN + 180.0);
-    let fill = sim.hush();
-    let colour = if sim.hush_dry() {
+    // The pool and its key, under the rows. The bar leads to the pad's
+    // icon, which is what fills it.
+    let bar_w = 60.0;
+    let y = MARGIN + 186.0;
+    let top = Vec2::new(right - bar_w, y - 4.0);
+    let colour = if sim.pool_dry() {
         with_alpha(HEART, pulse(clock).mul_add(0.4, 0.4))
+    } else if sim.holding() {
+        HELD
+    } else if sim.charging() {
+        with_alpha(OVERLAY, pulse(clock).mul_add(0.2, 0.7))
     } else {
-        with_alpha(OVERLAY, 0.8)
+        with_alpha(OVERLAY, 0.6)
     };
     view.rect_lines(
         view.hud(top),
@@ -745,8 +845,16 @@ fn draw_layers(sim: &Sim, view: &View, hud: &Hud, palette: &Palette, clock: f32)
     );
     view.rect(
         view.hud(top + Vec2::new(1.5, 1.5)),
-        Vec2::new((bar_w - 3.0) * fill, 5.0),
+        Vec2::new((bar_w - 3.0) * sim.pool(), 5.0),
         colour,
+    );
+    // A wide, empty cap: the space bar.
+    let cap_colour = if sim.holding() { HELD } else { colour };
+    view.key_cap(
+        None,
+        view.hud(Vec2::new(right - bar_w - 44.0, y)),
+        Vec2::new(64.0, 16.0),
+        cap_colour,
     );
 }
 
@@ -754,6 +862,7 @@ fn draw_layers(sim: &Sim, view: &View, hud: &Hud, palette: &Palette, clock: f32)
 fn draw_transport(sim: &Sim, view: &View, palette: &Palette) {
     let music = sim.music();
     let strip_y = VIEW_H - MARGIN - 44.0;
+    let accent = if sim.holding() { HELD } else { palette.accent };
 
     // Sections: a block each in its motif's colour, the live one filling
     // left to right as it plays out.
@@ -795,9 +904,9 @@ fn draw_transport(sim: &Sim, view: &View, palette: &Palette) {
         let height = if on_beat { 8.0 } else { 5.0 };
         let live = sim.phase() == Phase::Playing && step == music.step;
         let colour = if live {
-            palette.accent
+            accent
         } else {
-            with_alpha(palette.accent, if on_beat { 0.35 } else { 0.18 })
+            with_alpha(accent, if on_beat { 0.35 } else { 0.18 })
         };
         view.rect(
             view.hud(Vec2::new(x + 1.0, strip_y + 8.0 - height)),
@@ -819,10 +928,11 @@ fn draw_journey(sim: &Sim, view: &View, clock: f32) {
     view.circle(view.hud(at), 5.0, PLAYER);
 }
 
-/// The goal and the controls, as pictures: you, the way, home; the arrows.
+/// The goal and the controls, as pictures: you, the way, home; the arrows
+/// to move, the space bar to hold the music.
 fn draw_title(view: &View, clock: f32) {
     view.rect(view.hud(Vec2::ZERO), Vec2::new(VIEW_W, VIEW_H), SHADE);
-    let cy = VIEW_H * 0.42;
+    let cy = VIEW_H * 0.4;
     let you = view.hud(Vec2::new(VIEW_W * 0.25, cy));
     let home = view.hud(Vec2::new(VIEW_W * 0.75, cy));
     view.circle(you, PLAYER_RADIUS * 1.8, with_alpha(PLAYER, 0.1));
@@ -836,7 +946,7 @@ fn draw_title(view: &View, clock: f32) {
     home_glyph(view, home, 34.0, clock, HOME_GLOW);
 
     let glow = with_alpha(HIGHLIGHT, pulse(clock).mul_add(0.5, 0.5));
-    let base = Vec2::new(VIEW_W * 0.5, VIEW_H * 0.72);
+    let base = Vec2::new(VIEW_W * 0.38, VIEW_H * 0.72);
     let step = 34.0;
     view.arrow_cap(
         Vec2::new(0.0, -1.0),
@@ -857,6 +967,12 @@ fn draw_title(view: &View, clock: f32) {
         28.0,
         glow,
     );
+
+    // The space bar, with the fermata it performs above it.
+    let space = view.hud(Vec2::new(VIEW_W * 0.66, VIEW_H * 0.72));
+    let soft = with_alpha(HIGHLIGHT, pulse(clock + 1.0).mul_add(0.5, 0.5));
+    view.key_cap(None, space, Vec2::new(120.0, 26.0), soft);
+    fermata_glyph(view, space - Vec2::new(0.0, 40.0 * view.scale), 32.0, soft);
 }
 
 /// A circular arrow: start over.
@@ -907,7 +1023,7 @@ fn draw_restart_prompt(view: &View, clock: f32) {
     view.key_cap(
         Some('R'),
         view.hud(Vec2::new(VIEW_W.mul_add(0.5, 30.0), y)),
-        32.0,
+        Vec2::new(32.0, 32.0),
         glow,
     );
 }

@@ -23,51 +23,53 @@ of note events drives both the world and the speakers.
 
 | Motif | Feel | Stompers | Walls | You |
 | --- | --- | --- | --- | --- |
-| Wander | C major, 110 bpm | Drift a step on each kick, turn on each snare, half the time toward you | Sink in a beat and a half | Normal speed |
-| Pursuit | A minor, 132 bpm | Lunge at you on every kick and snare, harder | Linger for two and a half beats | A little faster |
-| Lullaby | F major, 84 bpm | Asleep where they stand, still solid, still sore to touch | Stay up for most of a bar | Slower |
+| Wander | C major, 110 bpm | Drift a step on each kick, turn on each snare (half the time toward you), and on alternate bars swell for a beat and stomp a shockwave | Sink in a beat and a half | Normal speed |
+| Pursuit | A minor, 132 bpm | Lunge at you on every kick, and on alternate bars wind up for a beat showing the line they will take, then dash down it | Linger for two and a half beats | A little faster |
+| Lullaby | F major, 84 bpm | Asleep where they stand, still solid, still sore to touch | Stay up for most of a bar | Slower, and a lost heart comes back |
 
-**Each instrument moves one thing, only while it sounds.**
+**Every voice drives something, only while it sounds.**
 
-| Instrument | What its notes do |
+| Voice | What its notes do |
 | --- | --- |
-| Drums | Kicks step the stompers; snares turn them |
-| Bass | Each note raises every wall in the lane of its pitch class. Walls stand across the way home with a gap every so often, and every other wall's gaps sit half a period off, so the road zigzags and the bass line decides when it is open |
-| Lead | Each note drops a spark ahead of you, further ahead the later in the bar, further to the side the further from the middle of the tune, so the melody lays a trail toward home |
-| Pad | While it holds, nearby sparks are pulled toward you |
+| Kick | Steps the stompers |
+| Snare | Slams the gates shut across every standing wall's gaps for a beat. Being in a gap when they slam is a hit |
+| Hat | Turns the spinners that stand between some of the walls. Touching a bar is a hit |
+| Bass | Each note raises every wall in the lane of its pitch class. Walls stand across the way home with a gap every so often, and every other wall's gaps sit half a period off, so the road zigzags and the bass line decides when it is open. A wall rising into you is a hit |
+| Lead | Each note drops a strike ahead of you, further ahead the later in the bar, further to the side the further from the middle of the tune, so the melody rains down in its own shape. A strike closes over a beat, then bursts |
+| Pad | Charges the fermata, below |
 
-An instrument sounds when the arrangement includes it *and* you are not
-hushing it. The intro has no drums, so nothing moves until section two; the
-second chase drops the pad; the lullaby keeps the drums but gives them no
-kicks, so the stompers stay put.
+**Hold the music.** Hold `Space` and the music holds — and with it
+everything the music drives: stompers freeze mid-dash, strikes hang, gates
+and spinners stop. You can still move. It spends a pool that refills only
+while the pad is sounding, so the sections without a pad are the ones to
+save it for. Run it dry and the music comes back on its own; the pool has
+to refill part way before it will take again.
 
-**Hush.** Hold `1` to `4` to silence an instrument, and so stop whatever it
-drives: hold the drums and the stompers freeze mid-chase, hold the bass and
-the walls sink out of the road. It spends a pool that refills only while
-you are not spending it. Run it dry and the instrument comes back on its
-own, and the pool has to refill part way before it will take again.
+**Three hearts.** Stompers, strikes, shockwaves, spinners, slamming gates
+and rising walls all cost one. The Lullaby gives one back. Lose them all and
+the music stops; reach home and it resolves on the motif's home chord.
 
-**Sparks heal. Stompers hurt.** You have three hearts. Eight sparks restore
-a lost one. Stompers more often than not come back on the road ahead of
-you. Lose every heart and the music stops; reach home and it resolves.
-
-It is meant to be hard. Two tests keep it honest: a player who only holds
-east loses on every seed tried, and a bot that reads the road — heads for
-the next gap, sidesteps stompers, hushes the drums when they close in —
-gets home on some seeds but not all.
+It is meant to be hard. Two tests keep it honest: a player who holds east
+and weaves loses on every seed tried, and a bot that reads the road — next
+gap, cross after the snare, off the aim lines, clear of the shockwaves,
+around the spinners, holding the music when crowded — gets well past where
+weaving ever does. The bot is no champion and does not get home; whether a
+person can is the next thing to find out by playing, and the knobs are the
+constants at the top of `src/sim.rs`.
 
 There is no text in the game. The HUD is built from the same shapes the
-world is made of — a stomper stands for the drums that move it, a wall for
-the bass, a spark for the lead, a ring for the pad — plus key caps. The
-motif shows as a colour and a glyph: a wave, an eye, a crescent.
+world is made of — a stomper stands for the drums, a wall for the bass, a
+strike for the lead, a fermata sign for the pad — plus key caps. The motif
+shows as a colour and a glyph: a wave, an eye, a crescent. While the music
+is held, everything it drives turns cool blue.
 
 ## Controls
 
 | Key | Action |
 | --- | --- |
 | Arrows / WASD | Move |
-| 1 2 3 4 (hold) | Hush drums, bass, lead, pad while held, spending the pool |
-| Space | Pause |
+| Space (hold) | Hold the music, spending the pool |
+| P / Escape | Pause |
 | R | Start over with a new seed |
 | M | Mute the audio itself (the game keeps playing; the music keeps ruling) |
 | Tab | Cue the next section at the next bar (a developer shortcut, not shown in the HUD) |
@@ -84,8 +86,9 @@ motif shows as a colour and a glyph: a wave, an eye, a crescent.
 - `src/mix.rs` — what a cue sounds like: the policy mapping every cue to a
   voice and a gain, plus an offline mixer. See below.
 - `src/synth.rs` — the instruments, rendered to WAV bytes at startup. A
-  Karplus-Strong pluck for the lead, a detuned pad, a sine bass, three drums,
-  and the game's own bleeps. No audio assets ship.
+  Karplus-Strong pluck for the lead, a detuned pad, a sine bass, three
+  drums, and for the game's own sounds only a bell (always in the current
+  key), a thud, a breath and a riser. No audio assets ship.
 - `src/audio.rs` — bakes one buffer per voice (macroquad cannot pitch a
   sound) and plays cues through the policy in `mix`.
 - `src/main.rs` — input, camera, drawing, the icon HUD.
@@ -95,8 +98,8 @@ motif shows as a colour and a glyph: a wave, an eye, a crescent.
 The audio backend sums every playing voice and hands the total to the
 device with nothing in between to limit it, so a busy moment can clip. The
 cue-to-voice policy therefore lives in the library, and `cargo test` renders
-the whole song through it — every layer on, a pickup and a hit forced onto
-every downbeat — and fails if the summed peak nears full scale. A second
+the whole song through it — every layer on, a hit, a shockwave and a windup
+forced onto every downbeat — and fails if the summed peak nears full scale. A second
 test piles every voice that can coincide onto one tick. CI runs these on
 their own too, so the measured peaks land in the log. When the tests were
 first written they caught the mix clipping at 1.10; the master gain is
@@ -144,8 +147,6 @@ Pre-commit hook: `git config core.hooksPath .githooks` (runs `cargo fmt`)
 
 - Let the *player* be an instrument: moving on the beat adds a layer.
 - Motifs that modulate: a section in a new key remaps the wall lanes.
-- Sparks that carry their note and play it back when collected, so a good
-  run harmonises with the song.
 - Stompers keyed to specific drums (one to the kick, one to the snare).
 - Terrain that changes with the section, so the road home has movements.
 - Scheduling audio a beat ahead so timing is sample-accurate.

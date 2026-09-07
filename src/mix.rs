@@ -3,25 +3,30 @@
 //! The runtime audio backend (quad-snd natively, Web Audio in the browser)
 //! sums every playing voice, scaled by its volume, and hands the total to
 //! the device. Nothing in between limits it: a sum over full scale clips at
-//! the DAC, and it clips worst exactly when the arena is busiest. So the
+//! the DAC, and it clips worst exactly when the world is busiest. So the
 //! policy that maps a [`Cue`] to a voice and a gain lives here, in the
 //! library, where a test can render the entire song through the same policy
 //! and measure the peak. The frontend's `audio` module uses [`voice_for`]
 //! and [`all_voices`] verbatim; if the tests pass, the speakers see a mix
 //! that was measured.
+//!
+//! Coherence is the other job of this file: everything that is not the
+//! band is either a bell in the current key or a noise with no pitch to
+//! clash, and there are as few of them as the game can get away with.
 
 use crate::sim::Cue;
-use crate::song::{self, Chord, HAT, Instrument, KICK, SNARE};
+use crate::song::{self, Chord, HAT, Instrument, KICK, Motif, SNARE};
 use crate::synth;
 
 /// Everything is scaled by this. Tuned so the busiest tick of the song, with
-/// a pickup and a hit on top, still sits under full scale — see the tests.
-pub const MASTER: f32 = 0.42;
+/// the game's own sounds on top, still sits under full scale — see the
+/// tests.
+pub const MASTER: f32 = 0.36;
 
 /// Peak gain per drum, at full velocity.
 const KICK_GAIN: f32 = 0.85;
-const SNARE_GAIN: f32 = 0.55;
-const HAT_GAIN: f32 = 0.28;
+const SNARE_GAIN: f32 = 0.6;
+const HAT_GAIN: f32 = 0.22;
 
 /// Peak gain for the pitched layers, at full velocity.
 const BASS_GAIN: f32 = 0.6;
@@ -29,11 +34,11 @@ const LEAD_GAIN: f32 = 0.5;
 const PAD_GAIN: f32 = 0.55;
 
 /// Gain for the game's own sounds.
-const PICKUP_GAIN: f32 = 0.45;
-const HEAL_GAIN: f32 = 0.7;
 const HIT_GAIN: f32 = 0.9;
-const HOME_GAIN: f32 = 0.8;
-const UI_GAIN: f32 = 0.25;
+const SHOCK_GAIN: f32 = 0.7;
+const WINDUP_GAIN: f32 = 0.35;
+const BREATH_GAIN: f32 = 0.45;
+const BELL_GAIN: f32 = 0.5;
 
 /// One baked buffer. The frontend keeps a `Sound` per voice; the tests keep
 /// samples.
@@ -47,18 +52,21 @@ pub enum Voice {
     Lead(u8),
     /// A pad chord.
     Pad(Chord),
-    /// Pickups and reaching home.
-    Chime,
-    /// Taking a hit.
+    /// A bell, by MIDI number: hearts, home, starting over.
+    Bell(u8),
+    /// Taking a hit, and a stomper's shockwave.
     Thump,
-    /// Unpausing, unhushing, restarting.
-    BlipUp,
-    /// Pausing, hushing.
-    BlipDown,
+    /// The fermata taking hold.
+    Breath,
+    /// Stompers winding up.
+    Riser,
 }
 
-/// The policy: which voice a cue plays, and how loud. `None` for cues that
-/// make no sound of their own — the music marks its own section changes.
+/// The policy: which voice a cue plays, and how loud.
+///
+/// `None` for cues that make no sound of their own — the music marks its
+/// own section changes, and the fermata letting go is heard as the music
+/// coming back.
 #[must_use]
 pub fn voice_for(cue: Cue) -> Option<(Voice, f32)> {
     let (voice, gain) = match cue {
@@ -85,24 +93,40 @@ pub fn voice_for(cue: Cue) -> Option<(Voice, f32)> {
             (voice, gain * loudness(velocity))
         }
         Cue::Chord(chord) => (Voice::Pad(chord), PAD_GAIN),
-        Cue::Pickup { healed: false } => (Voice::Chime, PICKUP_GAIN),
-        Cue::Pickup { healed: true } => (Voice::Chime, HEAL_GAIN),
         Cue::Hit { .. } => (Voice::Thump, HIT_GAIN),
-        Cue::Home => (Voice::Chime, HOME_GAIN),
-        Cue::Layer { on: true, .. } | Cue::Pause { paused: false } | Cue::Restart => {
-            (Voice::BlipUp, UI_GAIN)
+        Cue::Shock => (Voice::Thump, SHOCK_GAIN),
+        Cue::Windup => (Voice::Riser, WINDUP_GAIN),
+        Cue::Fermata { held: true } => (Voice::Breath, BREATH_GAIN),
+        Cue::Bell { pitch } => (Voice::Bell(pitch), BELL_GAIN),
+        Cue::Fermata { held: false } | Cue::Section(_) | Cue::Pause { .. } | Cue::Restart => {
+            return None;
         }
-        Cue::Layer { on: false, .. } | Cue::Pause { paused: true } => (Voice::BlipDown, UI_GAIN),
-        Cue::Section(_) => return None,
     };
     Some((voice, gain * MASTER))
+}
+
+/// Every bell pitch the game can ask for: each motif's home note in three
+/// octaves. Starting over rings the root, a heart back the octave, home the
+/// one above that.
+#[must_use]
+pub fn bell_pitches() -> Vec<u8> {
+    let mut out: Vec<u8> = [Motif::Wander, Motif::Pursuit, Motif::Lullaby]
+        .iter()
+        .flat_map(|m| {
+            let root = m.tonic().root();
+            [root, root + 12, root + 24]
+        })
+        .collect();
+    out.sort_unstable();
+    out.dedup();
+    out
 }
 
 /// Every voice any cue can ask for, so the frontend can bake them all up
 /// front. The song says which pitches and chords; the rest is fixed.
 #[must_use]
 pub fn all_voices() -> Vec<Voice> {
-    let mut voices = vec![Voice::Chime, Voice::Thump, Voice::BlipUp, Voice::BlipDown];
+    let mut voices = vec![Voice::Thump, Voice::Breath, Voice::Riser];
     voices.extend(
         song::pitches(Instrument::Drums)
             .into_iter()
@@ -111,6 +135,7 @@ pub fn all_voices() -> Vec<Voice> {
     voices.extend(song::pitches(Instrument::Bass).into_iter().map(Voice::Bass));
     voices.extend(song::pitches(Instrument::Lead).into_iter().map(Voice::Lead));
     voices.extend(song::chords().into_iter().map(Voice::Pad));
+    voices.extend(bell_pitches().into_iter().map(Voice::Bell));
     voices
 }
 
@@ -128,10 +153,10 @@ pub fn render(voice: Voice) -> Vec<u8> {
             let hz: Vec<f32> = chord.notes.iter().map(|&n| song::hertz(n)).collect();
             synth::pad(&hz)
         }
-        Voice::Chime => synth::chime(),
+        Voice::Bell(pitch) => synth::bell(song::hertz(pitch)),
         Voice::Thump => synth::thump(),
-        Voice::BlipUp => synth::blip(true),
-        Voice::BlipDown => synth::blip(false),
+        Voice::Breath => synth::breath(),
+        Voice::Riser => synth::riser(),
     }
 }
 
@@ -234,6 +259,18 @@ mod tests {
             .sum()
     }
 
+    fn started(seed: u64) -> Sim {
+        let mut sim = Sim::new(seed);
+        sim.advance(
+            0.0,
+            &InputFrame {
+                start: true,
+                ..InputFrame::default()
+            },
+        );
+        sim
+    }
+
     #[test]
     fn every_voice_bakes_and_every_cue_has_one() {
         let bank = bank();
@@ -244,17 +281,19 @@ mod tests {
 
         // Play the whole song with everything on and check every cue finds
         // a baked voice, or is a cue that deliberately makes no sound.
-        let mut sim = Sim::new(0xA0D10);
-        sim.advance(
-            0.0,
-            &InputFrame {
-                start: true,
-                ..InputFrame::default()
-            },
-        );
+        let mut sim = started(0xA0D10);
         let ticks = ((song_secs() + 1.0) / TICK_DT) as u32;
-        for _ in 0..ticks {
-            sim.advance(TICK_DT, &InputFrame::default());
+        for tick in 0..ticks {
+            sim.shield_player();
+            // Hold now and then so the fermata cues get exercised too.
+            let hold = tick % 600 < 30;
+            sim.advance(
+                TICK_DT,
+                &InputFrame {
+                    hold,
+                    ..InputFrame::default()
+                },
+            );
             for &cue in sim.cues() {
                 match voice_for(cue) {
                     Some((voice, gain)) => {
@@ -262,31 +301,33 @@ mod tests {
                         assert!(gain > 0.0 && gain <= 1.0, "{cue:?} at gain {gain}");
                     }
                     None => assert!(
-                        matches!(cue, Cue::Section(_)),
+                        matches!(
+                            cue,
+                            Cue::Section(_) | Cue::Fermata { held: false } | Cue::Restart
+                        ),
                         "{cue:?} is silent by accident"
                     ),
                 }
             }
         }
+        // And the bells of every motif are baked, whichever section wins.
+        for motif in [Motif::Wander, Motif::Pursuit, Motif::Lullaby] {
+            let root = motif.tonic().root();
+            for pitch in [root, root + 12, root + 24] {
+                assert!(bank.contains_key(&Voice::Bell(pitch)), "no bell at {pitch}");
+            }
+        }
     }
 
-    /// The whole song, every layer on, with a pickup and a hit forced onto
-    /// every downbeat: the loudest the game can get in ordinary play, and
-    /// then some.
+    /// The whole song, every layer on, with a hit, a shockwave and a windup
+    /// forced onto every downbeat: the loudest the game can get in ordinary
+    /// play, and then some.
     #[test]
     fn the_whole_song_fits_under_full_scale() {
         let bank = bank();
         let mut mixer = Mixer::new();
-        let mut sim = Sim::new(0xA0D10);
-        sim.advance(
-            0.0,
-            &InputFrame {
-                start: true,
-                ..InputFrame::default()
-            },
-        );
+        let mut sim = started(0xA0D10);
         let ticks = ((song_secs() + 2.0) / TICK_DT) as u32;
-        let mut healed = false;
         for tick in 0..ticks {
             let at = tick as f32 * TICK_DT;
             sim.shield_player();
@@ -295,12 +336,11 @@ mod tests {
             let music = sim.music();
             if music.step == 0 && music.step_phase < TICK_DT / SONG[0].motif.step_secs() {
                 // A downbeat: pile on the loudest game sounds too.
-                healed = !healed;
                 mix_cues(
                     &mut mixer,
                     &bank,
                     at,
-                    &[Cue::Pickup { healed }, Cue::Hit { fatal: false }],
+                    &[Cue::Hit { fatal: false }, Cue::Shock, Cue::Windup],
                 );
             }
         }
@@ -356,11 +396,12 @@ mod tests {
             full(Instrument::Bass, loudest_pitch(Instrument::Bass)),
             full(Instrument::Lead, loudest_pitch(Instrument::Lead)),
             Cue::Chord(chord),
-            Cue::Pickup { healed: true },
             Cue::Hit { fatal: true },
-            Cue::Layer {
-                instrument: Instrument::Pad,
-                on: false,
+            Cue::Shock,
+            Cue::Windup,
+            Cue::Fermata { held: true },
+            Cue::Bell {
+                pitch: bell_pitches()[0],
             },
         ];
         // The step before, still ringing.
@@ -373,26 +414,21 @@ mod tests {
     }
 
     #[test]
-    fn hushed_layers_leave_no_trace_in_the_mix() {
+    fn the_fermata_leaves_no_music_in_the_mix() {
         let bank = bank();
         let mut mixer = Mixer::new();
-        let mut sim = Sim::new(3);
-        sim.advance(
-            0.0,
-            &InputFrame {
-                start: true,
-                ..InputFrame::default()
-            },
-        );
-        // Hush everything for a second (well within the pool, even at two
-        // instruments' worth of drain) and mix only the music cues, ignoring
-        // the blips the hushing itself makes.
+        let mut sim = started(3);
+        // Hold for a second (well within the pool) and mix only the music
+        // cues, ignoring the breath the fermata itself makes.
         let hold = InputFrame {
-            hold_layer: [true; 4],
+            hold: true,
             ..InputFrame::default()
         };
+        // One unheld tick first, so the song has started.
+        sim.advance(TICK_DT, &InputFrame::default());
         let ticks = (1.0 / TICK_DT) as u32;
         for tick in 0..ticks {
+            sim.shield_player();
             sim.advance(TICK_DT, &hold);
             let music: Vec<Cue> = sim
                 .cues()
@@ -404,7 +440,7 @@ mod tests {
         }
         assert!(
             mixer.peak() < 1e-6,
-            "hushed music still sounds: {}",
+            "held music still sounds: {}",
             mixer.peak()
         );
     }
@@ -413,17 +449,17 @@ mod tests {
     fn the_mix_is_the_sum_of_its_voices() {
         let bank = bank();
         let kick = &bank[&Voice::Drum(KICK)];
-        let chime = &bank[&Voice::Chime];
+        let bell = &bank[&Voice::Bell(bell_pitches()[0])];
         let mut both = Mixer::new();
         both.play(0.0, kick, 0.5);
-        both.play(0.01, chime, 0.3);
+        both.play(0.01, bell, 0.3);
         let mut only_kick = Mixer::new();
         only_kick.play(0.0, kick, 0.5);
-        let mut only_chime = Mixer::new();
-        only_chime.play(0.01, chime, 0.3);
+        let mut only_bell = Mixer::new();
+        only_bell.play(0.01, bell, 0.3);
         for (i, sample) in both.samples().iter().enumerate() {
             let a = only_kick.samples().get(i).copied().unwrap_or(0.0);
-            let b = only_chime.samples().get(i).copied().unwrap_or(0.0);
+            let b = only_bell.samples().get(i).copied().unwrap_or(0.0);
             assert!((sample - (a + b)).abs() < 1e-6, "sample {i} is not the sum");
         }
         // And a mix that lands exactly on a note's own peak reports it.
@@ -438,14 +474,7 @@ mod tests {
         // note and that a downbeat is louder than the quietest sixteenth.
         let bank = bank();
         let mut mixer = Mixer::new();
-        let mut sim = Sim::new(3);
-        sim.advance(
-            0.0,
-            &InputFrame {
-                start: true,
-                ..InputFrame::default()
-            },
-        );
+        let mut sim = started(3);
         sim.place_player(Vec2::new(-5000.0, 0.0));
         let motif = SONG[0].motif;
         let mut onsets = Vec::new();
