@@ -1,54 +1,60 @@
 //! Cues in, sound out. The audio half of the frontend.
 //!
-//! This is the counterpart to `draw`: [`game_template::sim`] says *what*
-//! happened, and everything here decides what that sounds like. The waveforms
-//! themselves come from [`game_template::synth`], which stays macroquad-free
-//! so it can be unit-tested; this file is the part that needs a live audio
+//! This is the counterpart to `draw`: [`leitmotif::sim`] says *what*
+//! happened, and everything here decides what that sounds like. The
+//! waveforms come from [`leitmotif::synth`], which stays macroquad-free so
+//! it can be unit-tested; this file is the part that needs a live audio
 //! context.
+//!
+//! The music is the interesting part. macroquad cannot pitch a sound, so at
+//! load this bakes one buffer per pitch each instrument uses anywhere in the
+//! song — [`leitmotif::song::pitches`] and [`leitmotif::song::chords`] say
+//! which — and a note cue is a lookup plus a `play_sound`. Notes fire on the
+//! frame the sim crosses a step, so timing carries up to a frame of jitter;
+//! that is the accepted cost of keeping the sequencer inside the
+//! deterministic sim rather than on an audio thread.
 //!
 //! ## The autoplay problem
 //!
 //! Browsers start every page's audio context suspended and only resume it
-//! inside a real user gesture. quad-snd's `audio.js` already hooks
-//! mousedown/keydown/touch to do the resuming, so one-shots fired by a click
-//! are fine on their own. The looping drone is not: started at load it would
-//! run silently against a suspended context and then arrive mid-note the
-//! instant the page woke up. So it waits for the first press, and until then
-//! the HUD says so.
+//! inside a real user gesture. quad-snd's `audio.js` hooks the first
+//! mousedown or keydown to do the resuming, and the sim independently waits
+//! on the title screen for a first press before the song starts — so by the
+//! time there is anything to play, the context is awake.
 
-use game_template::sim::{Cue, InputFrame};
-use game_template::synth;
+use std::collections::HashMap;
+
+use leitmotif::sim::{Cue, InputFrame};
+use leitmotif::song::{self, Chord, HAT, Instrument, KICK, SNARE};
+use leitmotif::synth;
 use macroquad::audio::{self, PlaySoundParams, Sound};
 
-/// Peak gain for a burst, at full intensity.
-const BURST_GAIN: f32 = 0.85;
+/// Peak gain per drum, at full velocity.
+const KICK_GAIN: f32 = 0.85;
+const SNARE_GAIN: f32 = 0.55;
+const HAT_GAIN: f32 = 0.28;
 
-/// Peak gain for a wall-impact grain, at full intensity.
-const IMPACT_GAIN: f32 = 0.55;
+/// Peak gain for the pitched layers, at full velocity.
+const BASS_GAIN: f32 = 0.6;
+const LEAD_GAIN: f32 = 0.5;
+const PAD_GAIN: f32 = 0.55;
 
-/// Gain for the pause and reseed cues, which do not vary.
-const UI_GAIN: f32 = 0.4;
-
-/// Gain the attract drone rises to while the pointer is pulling.
-const DRONE_GAIN: f32 = 0.3;
-
-/// How fast the drone fades in and out, in gain per second. Stepping it
-/// straight to the target would click; these are slow enough to sound like a
-/// swell and fast enough to feel like a response.
-const DRONE_FADE_IN: f32 = 2.5;
-const DRONE_FADE_OUT: f32 = 1.2;
+/// Gain for the game's own sounds.
+const PICKUP_GAIN: f32 = 0.45;
+const HIT_GAIN: f32 = 0.9;
+const UI_GAIN: f32 = 0.35;
 
 /// The loaded sound bank plus the state that shapes playback.
 pub struct Audio {
-    thump: Sound,
-    patter: Sound,
+    drums: HashMap<u8, Sound>,
+    bass: HashMap<u8, Sound>,
+    lead: HashMap<u8, Sound>,
+    pads: HashMap<Chord, Sound>,
     chime: Sound,
+    thump: Sound,
     blip_up: Sound,
     blip_down: Sound,
-    drone: Sound,
-    /// Current drone gain, eased toward its target every frame.
-    drone_gain: f32,
-    /// Whether the user has pressed something yet, so the drone may start.
+    /// Whether the user has pressed something yet.
     awake: bool,
     muted: bool,
 }
@@ -57,63 +63,61 @@ impl Audio {
     /// Synthesise and decode the whole bank.
     ///
     /// Async because on the web each buffer goes to the browser to decode and
-    /// macroquad waits frames for the result. It is a handful of frames at
-    /// startup for a few tens of kilobytes of samples.
+    /// macroquad waits frames for the result. A few dozen buffers means a
+    /// few dozen frames at startup.
     pub async fn load() -> Self {
+        let mut drums = HashMap::new();
+        for pitch in song::pitches(Instrument::Drums) {
+            let wav = match pitch {
+                KICK => synth::kick(),
+                SNARE => synth::snare(),
+                _ => synth::hat(),
+            };
+            drums.insert(pitch, bake(&wav).await);
+        }
+        let mut bass = HashMap::new();
+        for pitch in song::pitches(Instrument::Bass) {
+            bass.insert(pitch, bake(&synth::bass(song::hertz(pitch))).await);
+        }
+        let mut lead = HashMap::new();
+        for pitch in song::pitches(Instrument::Lead) {
+            lead.insert(pitch, bake(&synth::pluck(song::hertz(pitch))).await);
+        }
+        let mut pads = HashMap::new();
+        for chord in song::chords() {
+            let hz: Vec<f32> = chord.notes.iter().map(|&n| song::hertz(n)).collect();
+            pads.insert(chord, bake(&synth::pad(&hz)).await);
+        }
         Self {
-            thump: bake(&synth::thump()).await,
-            patter: bake(&synth::patter()).await,
+            drums,
+            bass,
+            lead,
+            pads,
             chime: bake(&synth::chime()).await,
+            thump: bake(&synth::thump()).await,
             blip_up: bake(&synth::blip(true)).await,
             blip_down: bake(&synth::blip(false)).await,
-            drone: bake(&synth::drone()).await,
-            drone_gain: 0.0,
             awake: false,
             muted: false,
         }
     }
 
-    /// One frame: handle the mute key, play everything the sim cued, and ease
-    /// the drone toward whatever the pointer is asking for.
-    pub fn update(&mut self, dt: f32, cues: &[Cue], input: &InputFrame, toggle_mute: bool) {
+    /// One frame: handle the mute key and play everything the sim cued.
+    pub fn update(&mut self, cues: &[Cue], input: &InputFrame, toggle_mute: bool) {
         if toggle_mute {
             self.muted = !self.muted;
         }
-
         // Only presses count; a browser will not resume audio for mouse
         // movement, and neither will we.
-        if !self.awake
-            && (toggle_mute || input.burst || input.toggle_pause || input.reseed.is_some())
-        {
+        if input.start || toggle_mute || input.restart.is_some() {
             self.awake = true;
-            audio::play_sound(
-                &self.drone,
-                PlaySoundParams {
-                    looped: true,
-                    volume: 0.0,
-                },
-            );
         }
-
         for cue in cues {
             self.play(*cue);
         }
-
-        let target = if self.awake && !self.muted && input.attract {
-            DRONE_GAIN
-        } else {
-            0.0
-        };
-        let rate = if target > self.drone_gain {
-            DRONE_FADE_IN
-        } else {
-            DRONE_FADE_OUT
-        };
-        self.drone_gain += (target - self.drone_gain).clamp(-rate * dt, rate * dt);
-        audio::set_sound_volume(&self.drone, self.drone_gain);
     }
 
-    /// Whether the drone is still waiting on a first press, which is the one
+    /// Whether we are still waiting on a first press, which is the one
     /// audio state worth nagging the user about.
     #[must_use]
     pub const fn needs_gesture(&self) -> bool {
@@ -138,11 +142,36 @@ impl Audio {
             return;
         }
         let (sound, volume) = match cue {
-            Cue::Burst { intensity } => (&self.thump, BURST_GAIN * loudness(intensity)),
-            Cue::Impact { intensity } => (&self.patter, IMPACT_GAIN * loudness(intensity)),
-            Cue::Pause { paused: true } => (&self.blip_down, UI_GAIN),
-            Cue::Pause { paused: false } => (&self.blip_up, UI_GAIN),
-            Cue::Reseed => (&self.chime, UI_GAIN),
+            Cue::Note {
+                instrument,
+                pitch,
+                velocity,
+            } => {
+                let Some((sound, gain)) = self.voice(instrument, pitch) else {
+                    return;
+                };
+                (sound, gain * loudness(velocity))
+            }
+            Cue::Chord(chord) => {
+                let Some(sound) = self.pads.get(&chord) else {
+                    return;
+                };
+                (sound, PAD_GAIN)
+            }
+            Cue::Pickup { value } => {
+                // A little louder the more it was worth, within reason.
+                let bonus = (value as f32 * 0.03).min(0.25);
+                (&self.chime, PICKUP_GAIN + bonus)
+            }
+            Cue::Hit { .. } => (&self.thump, HIT_GAIN),
+            Cue::Layer { on: true, .. } | Cue::Pause { paused: false } | Cue::Restart => {
+                (&self.blip_up, UI_GAIN)
+            }
+            Cue::Layer { on: false, .. } | Cue::Pause { paused: true } => {
+                (&self.blip_down, UI_GAIN)
+            }
+            // The music marks its own section changes.
+            Cue::Section(_) => return,
         };
         audio::play_sound(
             sound,
@@ -152,16 +181,35 @@ impl Audio {
             },
         );
     }
+
+    /// The buffer for a note, and the gain its instrument sits at.
+    fn voice(&self, instrument: Instrument, pitch: u8) -> Option<(&Sound, f32)> {
+        match instrument {
+            Instrument::Drums => {
+                let gain = match pitch {
+                    KICK => KICK_GAIN,
+                    SNARE => SNARE_GAIN,
+                    HAT => HAT_GAIN,
+                    _ => return None,
+                };
+                self.drums.get(&pitch).map(|s| (s, gain))
+            }
+            Instrument::Bass => self.bass.get(&pitch).map(|s| (s, BASS_GAIN)),
+            Instrument::Lead => self.lead.get(&pitch).map(|s| (s, LEAD_GAIN)),
+            // Pad notes arrive as chords, not as single pitches.
+            Instrument::Pad => None,
+        }
+    }
 }
 
-/// Map a cue intensity onto a gain multiplier.
+/// Map a cue velocity onto a gain multiplier.
 ///
 /// Amplitude and perceived loudness are not the same thing: halving amplitude
 /// is nothing like halving loudness. The square root pulls quiet events up
 /// where they can still be heard, and the floor keeps the smallest ones from
 /// vanishing entirely.
-fn loudness(intensity: f32) -> f32 {
-    intensity.clamp(0.0, 1.0).sqrt().mul_add(0.75, 0.25)
+fn loudness(velocity: f32) -> f32 {
+    velocity.clamp(0.0, 1.0).sqrt().mul_add(0.75, 0.25)
 }
 
 /// Hand one synthesised WAV to the audio backend.

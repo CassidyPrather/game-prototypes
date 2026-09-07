@@ -8,11 +8,11 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=game-template",
-                    "--package=game-template"
+                    "--bin=leitmotif",
+                    "--package=leitmotif"
                 ],
                 "filter": {
-                    "name": "game-template",
+                    "name": "leitmotif",
                     "kind": "bin"
                 }
             },
@@ -28,10 +28,10 @@
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=game-template"
+                    "--package=leitmotif"
                 ],
                 "filter": {
-                    "name": "game_template",
+                    "name": "leitmotif",
                     "kind": "lib"
                 }
             },

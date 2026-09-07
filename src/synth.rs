@@ -1,18 +1,15 @@
-//! Procedural sound effects, as WAV bytes.
+//! Procedural instruments, as WAV bytes.
 //!
-//! Every voice is generated at startup, so the toy ships no audio assets: the
-//! wasm carries the few hundred bytes of arithmetic below instead of a few
-//! hundred kilobytes of samples, and there is nothing to credit in
-//! `CREDITS.md`. Swap in `load_sound("thump.wav")` the moment you have real
-//! sound design; this exists so the template has something to play.
+//! Every voice is generated at startup, so the toy ships no audio assets and
+//! there is nothing to credit in `CREDITS.md`. macroquad's audio API offers
+//! volume and looping and nothing else — no pitch control — so the frontend
+//! bakes one buffer per pitch each instrument uses (the song says which),
+//! and only gain varies at runtime.
 //!
-//! Two constraints shape what is here. macroquad's audio API offers volume
-//! and looping and nothing else — no pitch control — so anything that should
-//! vary by pitch is baked into its own buffer, and only gain varies at
-//! runtime. And on the web these bytes go through the browser's
-//! `decodeAudioData`, which never reports failure back to us in a form
-//! macroquad surfaces, so a malformed header hangs the loader instead of
-//! erroring. The tests at the bottom guard the header for that reason.
+//! On the web these bytes go through the browser's `decodeAudioData`, which
+//! never reports failure back in a form macroquad surfaces: a malformed
+//! header hangs the loader instead of erroring. The tests at the bottom
+//! guard the header for that reason.
 
 use std::f32::consts::TAU;
 
@@ -22,69 +19,142 @@ use std::f32::consts::TAU;
 /// anything else on load; matching it means that never happens.
 pub const SAMPLE_RATE: u32 = 44_100;
 
-/// Length of the looping drone. Exactly one second, which is what lets the
-/// integer-hertz partials below meet cleanly at the loop point.
-const DRONE_SECS: f32 = 1.0;
-
-/// Fade applied to the head and tail of every one-shot, in seconds. A buffer
+/// Fade applied to the head and tail of every buffer, in seconds. A buffer
 /// that starts or stops at a nonzero sample clicks.
 const FADE: f32 = 0.004;
 
 /// Fixed seed for the noise voices, so a given build always sounds the same.
 const NOISE_SEED: u64 = 0x50FA_5EED;
 
-/// Burst: a low sine dropping through its own decay, with a noise transient
-/// at the front so it reads as an impact rather than a note.
+/// Kick: a sine dropping from a knock to a thud, with a noise click on the
+/// front so it reads as a hit rather than a note.
+#[must_use]
+pub fn kick() -> Vec<u8> {
+    let mut rng = fastrand::Rng::with_seed(NOISE_SEED);
+    let mut phase = 0.0;
+    wav(&render(0.28, |t| {
+        // Sweeping a sine means integrating frequency; evaluating
+        // `sin(TAU * f(t) * t)` with a moving `f` warps the phase and chirps.
+        let freq = 130.0_f32.mul_add((-t * 22.0).exp(), 46.0);
+        phase += TAU * freq / SAMPLE_RATE as f32;
+        let body = phase.sin() * (-t * 9.0).exp();
+        let click = rng.f32().mul_add(2.0, -1.0) * (-t * 160.0).exp() * 0.3;
+        (body + click) * 0.9
+    }))
+}
+
+/// Snare: a burst of noise over a short tone, both dying fast.
+#[must_use]
+pub fn snare() -> Vec<u8> {
+    let mut rng = fastrand::Rng::with_seed(NOISE_SEED);
+    let mut lp = 0.0;
+    wav(&render(0.18, |t| {
+        let noise = rng.f32().mul_add(2.0, -1.0);
+        lp = (noise - lp).mul_add(0.5, lp);
+        let rattle = lp * (-t * 24.0).exp();
+        let tone = (TAU * 190.0 * t).sin() * (-t * 40.0).exp() * 0.5;
+        (rattle + tone) * 0.8
+    }))
+}
+
+/// Hat: a tick of bright noise. Highpassed by subtracting a lowpass, which
+/// is as much filter design as a hat deserves.
+#[must_use]
+pub fn hat() -> Vec<u8> {
+    let mut rng = fastrand::Rng::with_seed(NOISE_SEED);
+    let mut lp = 0.0;
+    wav(&render(0.06, |t| {
+        let noise = rng.f32().mul_add(2.0, -1.0);
+        lp = (noise - lp).mul_add(0.3, lp);
+        (noise - lp) * (-t * 70.0).exp() * 0.6
+    }))
+}
+
+/// Bass: a sine with a couple of harmonics that fade faster than the
+/// fundamental, so the note opens bright and settles round.
+#[must_use]
+pub fn bass(hz: f32) -> Vec<u8> {
+    wav(&render(0.4, |t| {
+        let fundamental = (TAU * hz * t).sin();
+        let second = (TAU * hz * 2.0 * t).sin() * (-t * 12.0).exp() * 0.35;
+        let third = (TAU * hz * 3.0 * t).sin() * (-t * 20.0).exp() * 0.15;
+        (fundamental + second + third) * (-t * 5.0).exp() * 0.7
+    }))
+}
+
+/// Lead: Karplus-Strong plucked string. A burst of noise circulates through
+/// a delay line one period long, losing a little of its top end each pass,
+/// which is all a plucked string physically is.
+#[must_use]
+pub fn pluck(hz: f32) -> Vec<u8> {
+    let mut rng = fastrand::Rng::with_seed(NOISE_SEED);
+    // The delay line has to be at least two samples or the averaging below
+    // has nothing to average; no pitch in the song comes anywhere near.
+    // Frequencies are positive, so the cast cannot lose a sign.
+    #[allow(clippy::cast_sign_loss)]
+    let period = ((SAMPLE_RATE as f32 / hz).round() as usize).max(2);
+    let mut line: Vec<f32> = (0..period).map(|_| rng.f32().mul_add(2.0, -1.0)).collect();
+    let mut head = 0;
+    wav(&render(0.6, |t| {
+        let next = (head + 1) % period;
+        // Two-point average is the lowpass; the gain below it sets the decay.
+        let out = (line[head] + line[next]) * 0.5 * 0.996;
+        line[head] = out;
+        head = next;
+        // A gentle overall envelope so the tail does not hang forever.
+        out * (-t * 2.5).exp() * 0.5
+    }))
+}
+
+/// Pad: a soft, slightly detuned chord that swells in and fades out.
+/// Sustains a little past the longest bar so chords overlap rather than gap.
+#[must_use]
+pub fn pad(hz: &[f32]) -> Vec<u8> {
+    const SECS: f32 = 3.0;
+    const ATTACK: f32 = 0.25;
+    const RELEASE: f32 = 0.8;
+    let gain = 0.22 / hz.len().max(1) as f32;
+    wav(&render(SECS, |t| {
+        let attack = (t / ATTACK).min(1.0);
+        let release = ((SECS - t) / RELEASE).min(1.0);
+        let envelope = attack * release;
+        hz.iter()
+            .map(|&f| {
+                // Two oscillators a few cents apart beat gently against each
+                // other; a quiet octave up keeps it from sounding hollow.
+                let a = (TAU * f * 0.998 * t).sin();
+                let b = (TAU * f * 1.002 * t).sin();
+                let high = (TAU * f * 2.0 * t).sin() * 0.15;
+                a + b + high
+            })
+            .sum::<f32>()
+            * envelope
+            * gain
+    }))
+}
+
+/// Pickup: a bright bell, an octave and a fifth of partials.
+#[must_use]
+pub fn chime() -> Vec<u8> {
+    wav(&render(0.35, |t| {
+        let a = (TAU * 1318.5 * t).sin();
+        let b = (TAU * 2637.0 * t).sin() * 0.4;
+        let c = (TAU * 1976.0 * t).sin() * 0.25;
+        (a + b + c) * (-t * 9.0).exp() * 0.35
+    }))
+}
+
+/// Hit: a low thud with a rasp of noise on top.
 #[must_use]
 pub fn thump() -> Vec<u8> {
     let mut rng = fastrand::Rng::with_seed(NOISE_SEED);
     let mut phase = 0.0;
-    wav(&render(0.30, |t| {
-        // Sweeping a sine means integrating frequency; evaluating
-        // `sin(TAU * f(t) * t)` with a moving `f` warps the phase and chirps.
-        let freq = 145.0_f32.mul_add((-t * 18.0).exp(), 45.0);
+    wav(&render(0.35, |t| {
+        let freq = 90.0_f32.mul_add((-t * 14.0).exp(), 38.0);
         phase += TAU * freq / SAMPLE_RATE as f32;
-        let body = phase.sin() * (-t * 11.0).exp();
-        let transient = rng.f32().mul_add(2.0, -1.0) * (-t * 130.0).exp() * 0.35;
-        (body + transient) * 0.9
-    }))
-}
-
-/// Wall impacts: a short grain of lowpassed noise. Deliberately dry — this
-/// one plays in bursts, and anything with a tail would smear into mush.
-#[must_use]
-pub fn patter() -> Vec<u8> {
-    let mut rng = fastrand::Rng::with_seed(NOISE_SEED);
-    // Two one-pole lowpasses in series; enough to take the fizz off white
-    // noise without needing a real filter design.
-    let mut lp = (0.0, 0.0);
-    wav(&render(0.09, |t| {
-        let noise = rng.f32().mul_add(2.0, -1.0);
-        lp.0 = (noise - lp.0).mul_add(0.25, lp.0);
-        lp.1 = (lp.0 - lp.1).mul_add(0.25, lp.1);
-        lp.1 * (-t * 55.0).exp() * 2.2
-    }))
-}
-
-/// Reseed: a three-note arpeggio, one note per fifth of a second, to mark
-/// "new world" rather than "something was hit".
-#[must_use]
-pub fn chime() -> Vec<u8> {
-    // D5, A5, D6 — an open-sounding stack that needs no chord context.
-    const NOTES: [(f32, f32); 3] = [(587.33, 0.0), (880.0, 0.08), (1174.66, 0.16)];
-    wav(&render(0.75, |t| {
-        NOTES
-            .iter()
-            .filter(|(_, start)| t >= *start)
-            .map(|(freq, start)| {
-                let age = t - start;
-                // A quiet second harmonic keeps it from sounding like a test tone.
-                let tone =
-                    0.25_f32.mul_add((TAU * freq * 2.0 * age).sin(), (TAU * freq * age).sin());
-                tone * (-age * 7.0).exp()
-            })
-            .sum::<f32>()
-            * 0.33
+        let body = phase.sin() * (-t * 7.0).exp();
+        let rasp = rng.f32().mul_add(2.0, -1.0) * (-t * 30.0).exp() * 0.4;
+        (body + rasp) * 0.9
     }))
 }
 
@@ -106,38 +176,12 @@ pub fn blip(rising: bool) -> Vec<u8> {
     }))
 }
 
-/// The attract drone: a quiet held tone the frontend fades in while the
-/// pointer is pulling.
-///
-/// Every partial is an exact integer number of hertz over an exactly
-/// one-second buffer, so each one completes a whole number of cycles and the
-/// end of the buffer lines up with its start. That is the whole trick to a
-/// seamless loop — no crossfading required. The 55/56 Hz pair beats against
-/// itself once a second, which is also seamless, and keeps the tone alive.
-#[must_use]
-pub fn drone() -> Vec<u8> {
-    const PARTIALS: [(f32, f32); 5] = [
-        (55.0, 0.50),
-        (56.0, 0.38),
-        (110.0, 0.22),
-        (165.0, 0.10),
-        (221.0, 0.05),
-    ];
-    wav(&render_exact(DRONE_SECS, |t| {
-        let tremolo = 0.15_f32.mul_add((TAU * 3.0 * t).sin(), 0.85);
-        PARTIALS
-            .iter()
-            .map(|(freq, gain)| (TAU * freq * t).sin() * gain)
-            .sum::<f32>()
-            * tremolo
-            * 0.5
-    }))
-}
-
 /// Render `secs` of mono audio, then fade both ends so it starts and stops
-/// silently. For one-shots.
-fn render(secs: f32, voice: impl FnMut(f32) -> f32) -> Vec<f32> {
-    let mut buffer = render_exact(secs, voice);
+/// silently.
+fn render(secs: f32, mut voice: impl FnMut(f32) -> f32) -> Vec<f32> {
+    let mut buffer: Vec<f32> = (0..sample_count(secs))
+        .map(|i| voice(i as f32 / SAMPLE_RATE as f32))
+        .collect();
     let fade = sample_count(FADE);
     let len = buffer.len();
     for i in 0..fade.min(len / 2) {
@@ -146,14 +190,6 @@ fn render(secs: f32, voice: impl FnMut(f32) -> f32) -> Vec<f32> {
         buffer[len - 1 - i] *= gain;
     }
     buffer
-}
-
-/// Render `secs` of mono audio verbatim. For anything that loops, where a
-/// fade would be an audible dip once per cycle.
-fn render_exact(secs: f32, mut voice: impl FnMut(f32) -> f32) -> Vec<f32> {
-    (0..sample_count(secs))
-        .map(|i| voice(i as f32 / SAMPLE_RATE as f32))
-        .collect()
 }
 
 /// Seconds to a whole number of samples.
@@ -199,18 +235,34 @@ fn wav(samples: &[f32]) -> Vec<u8> {
 }
 
 #[cfg(test)]
+// Tests turn positive frequencies into sample counts.
+#[allow(clippy::cast_sign_loss)]
 mod tests {
     use super::*;
+    use crate::song::{self, Instrument};
 
-    /// Every one-shot voice, by name, for the checks that apply to all of them.
-    fn one_shots() -> Vec<(&'static str, Vec<u8>)> {
-        vec![
-            ("thump", thump()),
-            ("patter", patter()),
-            ("chime", chime()),
-            ("blip up", blip(true)),
-            ("blip down", blip(false)),
-        ]
+    /// Every voice the game bakes, by name.
+    fn voices() -> Vec<(String, Vec<u8>)> {
+        let mut out = vec![
+            ("kick".to_owned(), kick()),
+            ("snare".to_owned(), snare()),
+            ("hat".to_owned(), hat()),
+            ("chime".to_owned(), chime()),
+            ("thump".to_owned(), thump()),
+            ("blip up".to_owned(), blip(true)),
+            ("blip down".to_owned(), blip(false)),
+        ];
+        for pitch in song::pitches(Instrument::Bass) {
+            out.push((format!("bass {pitch}"), bass(song::hertz(pitch))));
+        }
+        for pitch in song::pitches(Instrument::Lead) {
+            out.push((format!("pluck {pitch}"), pluck(song::hertz(pitch))));
+        }
+        for chord in song::chords() {
+            let hz: Vec<f32> = chord.notes.iter().map(|&n| song::hertz(n)).collect();
+            out.push((format!("pad {:?}", chord.notes), pad(&hz)));
+        }
+        out
     }
 
     /// Pull the samples back out of a WAV the way a decoder would.
@@ -229,7 +281,7 @@ mod tests {
     fn header_is_a_well_formed_wav() {
         // A bad header does not fail loudly on the web -- decodeAudioData just
         // never calls back, and macroquad waits for it forever. Hence a test.
-        for (name, bytes) in one_shots().into_iter().chain([("drone", drone())]) {
+        for (name, bytes) in voices() {
             assert_eq!(&bytes[0..4], b"RIFF", "{name}");
             assert_eq!(&bytes[8..12], b"WAVE", "{name}");
             assert_eq!(&bytes[12..16], b"fmt ", "{name}");
@@ -249,7 +301,7 @@ mod tests {
 
     #[test]
     fn voices_are_audible_but_not_clipped_flat() {
-        for (name, bytes) in one_shots().into_iter().chain([("drone", drone())]) {
+        for (name, bytes) in voices() {
             let samples = decode(&bytes);
             let peak = samples.iter().map(|s| i32::from(s.abs())).max().unwrap();
             assert!(peak > 3000, "{name} is nearly silent (peak {peak})");
@@ -266,9 +318,9 @@ mod tests {
     }
 
     #[test]
-    fn one_shots_start_and_end_silently() {
+    fn voices_start_and_end_silently() {
         // Anything else is an audible click at each end.
-        for (name, bytes) in one_shots() {
+        for (name, bytes) in voices() {
             let samples = decode(&bytes);
             assert_eq!(samples.first(), Some(&0), "{name} starts mid-waveform");
             assert!(
@@ -280,33 +332,44 @@ mod tests {
     }
 
     #[test]
-    fn drone_loops_without_a_seam() {
-        let samples = decode(&drone());
-        assert_eq!(
-            samples.len(),
-            SAMPLE_RATE as usize,
-            "drone is not exactly 1s"
-        );
+    fn pitched_voices_are_pitched() {
+        // A note at f Hz repeats every SAMPLE_RATE / f samples, so its
+        // autocorrelation peaks at that lag. Harmonics do not disturb this
+        // the way they would a zero-crossing count.
+        for (name, bytes, hz) in [
+            ("bass", bass(110.0), 110.0_f32),
+            ("pluck", pluck(440.0), 440.0),
+        ] {
+            let samples: Vec<f32> = decode(&bytes).iter().map(|&s| f32::from(s)).collect();
+            let start = SAMPLE_RATE as usize / 20;
+            let window = &samples[start..start + SAMPLE_RATE as usize / 10];
+            let period = (SAMPLE_RATE as f32 / hz).round() as usize;
+            let at_period = autocorrelation(window, period);
+            let off_period = autocorrelation(window, period * 3 / 5);
+            assert!(
+                at_period > 0.8,
+                "{name} at {hz} Hz does not repeat at its period ({at_period})"
+            );
+            assert!(
+                at_period > off_period,
+                "{name} at {hz} Hz correlates better off-period ({off_period} vs {at_period})"
+            );
+        }
+    }
 
-        // Integer-hertz partials over a one-second buffer should hand off from
-        // the last sample to the first as smoothly as any interior pair does.
-        let seam = i32::from(samples[0]) - i32::from(samples[samples.len() - 1]);
-        let widest_interior = samples
-            .windows(2)
-            .map(|pair| (i32::from(pair[1]) - i32::from(pair[0])).abs())
-            .max()
-            .unwrap();
-        assert!(
-            seam.abs() <= widest_interior,
-            "loop point jumps {}, more than the {widest_interior} of any real step",
-            seam.abs()
-        );
+    /// Normalised autocorrelation of `x` at `lag`, in `-1..=1`.
+    fn autocorrelation(x: &[f32], lag: usize) -> f32 {
+        let n = x.len() - lag;
+        let dot: f32 = (0..n).map(|i| x[i] * x[i + lag]).sum();
+        let energy: f32 = (0..n).map(|i| x[i] * x[i]).sum();
+        dot / energy.max(f32::EPSILON)
     }
 
     #[test]
     fn generation_is_reproducible() {
         // The noise voices seed a fixed RNG; two builds must agree.
-        assert_eq!(thump(), thump());
-        assert_eq!(patter(), patter());
+        assert_eq!(kick(), kick());
+        assert_eq!(snare(), snare());
+        assert_eq!(pluck(330.0), pluck(330.0));
     }
 }

@@ -1,23 +1,23 @@
 [package]
-name = "game-template"
+name = "leitmotif"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Cassidy Prather <pratherea@gmail.com>"]
-description = "Cassidy's opinionated Rust game/toy template"
+description = "A prototype game whose rules are set by its music: motifs and instruments drive the arena"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
-repository = "https://github.com/CassidyPrather/game-template"
-keywords = ["game", "gamedev", "macroquad", "wasm", "template"]
+repository = "https://github.com/CassidyPrather/game-prototypes"
+keywords = ["game", "gamedev", "macroquad", "wasm", "music"]
 categories = ["games", "wasm"]
 publish = false
 
 [lib]
-name = "game_template"
+name = "leitmotif"
 path = "src/lib.rs"
 
 [[bin]]
-name = "game-template"
+name = "leitmotif"
 path = "src/main.rs"
 
 [[bench]]

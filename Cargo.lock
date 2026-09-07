@@ -319,15 +319,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "game-template"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "fastrand",
- "macroquad",
-]
-
-[[package]]
 name = "glam"
 version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -398,6 +389,15 @@ dependencies = [
  "cfg-if",
  "futures-util",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "leitmotif"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "fastrand",
+ "macroquad",
 ]
 
 [[package]]
