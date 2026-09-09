@@ -8,11 +8,11 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=leitmotif",
-                    "--package=leitmotif"
+                    "--bin=game-prototypes",
+                    "--package=game-prototypes"
                 ],
                 "filter": {
-                    "name": "leitmotif",
+                    "name": "game-prototypes",
                     "kind": "bin"
                 }
             },
@@ -28,10 +28,10 @@
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=leitmotif"
+                    "--package=game-prototypes"
                 ],
                 "filter": {
-                    "name": "leitmotif",
+                    "name": "game_prototypes",
                     "kind": "lib"
                 }
             },

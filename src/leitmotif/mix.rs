@@ -14,9 +14,9 @@
 //! band is either a bell in the current key or a noise with no pitch to
 //! clash, and there are as few of them as the game can get away with.
 
-use crate::sim::Cue;
-use crate::song::{self, Chord, HAT, Instrument, KICK, Motif, SNARE};
-use crate::synth;
+use crate::leitmotif::sim::Cue;
+use crate::leitmotif::song::{self, Chord, HAT, Instrument, KICK, Motif, SNARE};
+use crate::leitmotif::synth;
 
 /// Everything is scaled by this. Tuned so the busiest tick of the song, with
 /// the game's own sounds on top, still sits under full scale — see the
@@ -224,8 +224,8 @@ mod tests {
     use std::collections::HashMap;
 
     use super::*;
-    use crate::sim::{InputFrame, Phase, Sim, TICK_DT, Vec2};
-    use crate::song::{BARS_PER_SECTION, SONG, STEPS_PER_BAR};
+    use crate::leitmotif::sim::{InputFrame, Phase, Sim, TICK_DT, Vec2};
+    use crate::leitmotif::song::{BARS_PER_SECTION, SONG, STEPS_PER_BAR};
 
     /// Loudest the mix may get. Below full scale by enough that a frame of
     /// runtime jitter cannot line peaks up that the offline render did not.

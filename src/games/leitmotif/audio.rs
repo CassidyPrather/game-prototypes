@@ -1,7 +1,7 @@
 //! Cues in, sound out. The audio half of the frontend.
 //!
-//! This is the counterpart to `draw`: [`leitmotif::sim`] says *what*
-//! happened, [`leitmotif::mix`] says what that sounds like and how loud,
+//! This is the counterpart to `draw`: the library's `leitmotif::sim` says
+//! *what* happened, `leitmotif::mix` says what that sounds like and how loud,
 //! and this file is the part that needs a live audio context. It bakes one
 //! buffer per [`Voice`] up front — macroquad cannot pitch a sound, so every
 //! pitch the song uses is its own buffer — and a cue becomes a lookup and a
@@ -22,8 +22,8 @@
 
 use std::collections::HashMap;
 
-use leitmotif::mix::{self, Voice};
-use leitmotif::sim::{Cue, InputFrame};
+use game_prototypes::leitmotif::mix::{self, Voice};
+use game_prototypes::leitmotif::sim::{Cue, InputFrame};
 use macroquad::audio::{self, PlaySoundParams, Sound};
 
 /// The loaded sound bank plus the state that shapes playback.

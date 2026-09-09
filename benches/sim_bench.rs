@@ -4,8 +4,8 @@ use std::hint::black_box;
 
 use criterion::{Criterion, criterion_group, criterion_main};
 
-use leitmotif::sim::{InputFrame, Sim, TICK_DT, Vec2};
-use leitmotif::song::Sequencer;
+use game_prototypes::leitmotif::sim::{InputFrame, Sim, TICK_DT, Vec2};
+use game_prototypes::leitmotif::song::Sequencer;
 
 /// A sim past the title screen and into the full arrangement, where every
 /// layer is sounding and the arena is at its busiest.

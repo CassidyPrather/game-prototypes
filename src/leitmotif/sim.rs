@@ -38,7 +38,7 @@
 use std::f32::consts::TAU;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub};
 
-use crate::song::{self, Chord, Event, Instrument, Motif, Position, Sequencer};
+use crate::leitmotif::song::{self, Chord, Event, Instrument, Motif, Position, Sequencer};
 
 /// Length of one simulation step. Ticks are always exactly this long.
 pub const TICK_DT: f32 = 1.0 / 60.0;
@@ -1368,7 +1368,7 @@ fn push_out(walls: &[f32; WALL_LANES], gates_shut: bool, body: &mut Body, radius
 #[allow(clippy::cast_sign_loss)]
 mod tests {
     use super::*;
-    use crate::song::{BARS_PER_SECTION, SONG};
+    use crate::leitmotif::song::{BARS_PER_SECTION, SONG};
 
     /// A sim that has left the title screen.
     fn playing(seed: u64) -> Sim {

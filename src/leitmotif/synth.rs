@@ -270,7 +270,7 @@ fn wav(samples: &[f32]) -> Vec<u8> {
 #[allow(clippy::cast_sign_loss)]
 mod tests {
     use super::*;
-    use crate::song::{self, Instrument};
+    use crate::leitmotif::song::{self, Instrument};
 
     /// Every voice the game bakes, by name.
     fn voices() -> Vec<(String, Vec<u8>)> {

@@ -4,8 +4,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Leitmotif: a small game whose rules are set by its music.">
-    <title>leitmotif</title>
+    <meta name="description" content="Cassidy's small game prototypes, behind one menu.">
+    <title>game prototypes</title>
     <!-- Inline so the shell keeps making zero external requests (and the console
          keeps making zero 404s). -->
     <link rel="icon"
@@ -112,7 +112,7 @@
         } else if (!document.createElement("canvas").getContext("webgl")) {
             fail("This browser lacks WebGL support.");
         } else {
-            load("leitmotif.wasm"); // keep in sync with the [[bin]] name in Cargo.toml
+            load("game-prototypes.wasm"); // keep in sync with the [[bin]] name in Cargo.toml
             // Translucent draws write alpha into the framebuffer and let the
             // page show through — including this status line. Remove it once
             // the wasm is actually running (gl.js sets wasm_exports at

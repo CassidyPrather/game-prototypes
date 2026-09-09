@@ -1,23 +1,23 @@
 [package]
-name = "leitmotif"
+name = "game-prototypes"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Cassidy Prather <pratherea@gmail.com>"]
-description = "A prototype game whose rules are set by its music: motifs and instruments drive the arena"
+description = "Cassidy's small game prototypes, behind one menu"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/CassidyPrather/game-prototypes"
-keywords = ["game", "gamedev", "macroquad", "wasm", "music"]
+keywords = ["game", "gamedev", "macroquad", "wasm", "prototype"]
 categories = ["games", "wasm"]
 publish = false
 
 [lib]
-name = "leitmotif"
+name = "game_prototypes"
 path = "src/lib.rs"
 
 [[bin]]
-name = "leitmotif"
+name = "game-prototypes"
 path = "src/main.rs"
 
 [[bench]]

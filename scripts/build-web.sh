@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 # Keep this in sync with the [[bin]] name in Cargo.toml
-BIN="leitmotif"
+BIN="game-prototypes"
 OUT="dist/web"
 
 cargo build --release --target wasm32-unknown-unknown

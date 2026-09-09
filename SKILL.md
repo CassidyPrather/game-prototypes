@@ -1,42 +1,60 @@
 ---
-name: leitmotif
-description: Leitmotif, a Rust + macroquad prototype where the music's motif and instruments set the game's rules — wasm, static deploy
+name: game-prototypes
+description: Cassidy's small game prototypes behind one menu — Rust + macroquad, wasm, static deploy
 ---
 
-# leitmotif
+# game-prototypes
 
-A prototype game whose rules are set by its music: the current motif decides
-how the world behaves, and each sounding instrument animates one thing. The
-goal is a journey home through an unbounded world; there is no text in the
-game, only icons and key caps.
-Rust + macroquad, compiled to wasm, shipped as a static page. Native desktop
-builds also work. Crate `leitmotif`, lib `leitmotif`, bin `leitmotif`.
+A collection of small game prototypes behind a main menu. Rust + macroquad,
+compiled to wasm, shipped as a static page. Native desktop builds also work.
+Crate `game-prototypes`, lib `game_prototypes`, bin `game-prototypes`.
 Built on Cassidy's game-template. Code is AGPL-3.0-or-later.
+
+The one prototype so far is **Leitmotif**: a journey home whose rules are
+set by its music — the current motif decides how the world behaves, each
+voice in the band drives a hazard, and holding the music holds everything it
+drives. There is no text in it, only icons and key caps.
 
 ## Repo Map
 
-- `src/song.rs` — the score and the sequencer. Motifs (key, tempo, drum
+The library half is pure and tested; the binary half is macroquad and is
+not. Both are split the same way, project first and prototype second.
+
+- `src/lib.rs` — the library root.
+- `src/shell.rs` — the menu's state: `GameId`, and where the pointer is.
+  Unit-tested; adding a prototype starts with a variant here.
+- `src/main.rs` — the shell's loop. Menu, or the running prototype.
+  Escape leaves a prototype without unloading it.
+- `src/ui.rs` — the letterboxed 800x600 `Frame` and every drawing
+  primitive, shared by the menu and the prototypes. Positions are pixels,
+  sizes are frame units.
+- `src/menu.rs` — the menu screen: input and cards, no state of its own.
+- `src/games.rs` — the `Game` trait (`update`, `draw`) and the two matches
+  that wire a prototype in: `load` and `emblem`.
+
+### Leitmotif
+
+- `src/leitmotif/song.rs` — the score and the sequencer. Motifs (key, tempo, drum
   patterns, bass and lead notes, pad chords), the song form (`SONG`), and
   `Sequencer`, which emits `Event`s as it is advanced by sim ticks. Pure,
   unit-tested, holds no clock of its own. Also lists every pitch and chord
   used, for the frontend to bake.
-- `src/sim.rs` — the world. Pure, deterministic, no macroquad. Turns song
+- `src/leitmotif/sim.rs` — the world. Pure, deterministic, no macroquad. Turns song
   events into behaviour (kicks move stompers, snares slam gates, hats turn
   spinners, bass raises walls, lead drops strikes, the pad charges the
   fermata; the motif sets the rules and the stompers' telegraphed moves)
   and forwards them, plus the game's own events, as `Cue`s. Unbounded:
   walls repeat on a grid, stompers respawn near the player. Most work
   belongs here or in `song`.
-- `src/mix.rs` — what a cue sounds like. The cue-to-voice-and-gain policy
+- `src/leitmotif/mix.rs` — what a cue sounds like. The cue-to-voice-and-gain policy
   the frontend plays through, and an offline `Mixer` whose tests render the
   whole song and fail if the sum nears full scale. Tune `MASTER` here.
-- `src/synth.rs` — procedural instruments as WAV bytes. Pure, unit-tested;
+- `src/leitmotif/synth.rs` — procedural instruments as WAV bytes. Pure, unit-tested;
   the toy ships no audio assets.
-- `src/main.rs` — thin macroquad frontend. Window, camera, draw calls, the
-  icon HUD, input.
-- `src/audio.rs` — the other half of the frontend: bakes one buffer per
-  `mix::Voice` and plays `sim::Cue`s through `mix::voice_for`. Binary-crate
-  module, not part of the library.
+- `src/games/leitmotif.rs` — thin macroquad frontend. Camera, draw calls,
+  the icon HUD, input, and the emblem the menu shows.
+- `src/games/leitmotif/audio.rs` — the other half of the frontend: bakes one
+  buffer per `mix::Voice` and plays `sim::Cue`s through `mix::voice_for`.
 - `build.rs` — embeds a `git describe` version string.
 - `web/index.html`, `web/gl.js`, `web/audio.js` — the static shell, the
   vendored miniquad loader, and the vendored quad-snd audio plugin. Zero
@@ -130,7 +148,13 @@ control, so every pitch an instrument plays is its own baked buffer;
 and it bakes automatically; the tests check that nothing plays unbaked.
 
 No text on screen. If the HUD needs to say something, say it with a shape
-the world already uses, a colour, or a key cap with one character on it.
+the world already uses, a colour, or a key cap with one character on it. The
+menu bends this once, for the names on its cards, because a shelf of unnamed
+pictures stops being a menu; everything else there is drawn.
+
+Drawing goes through `ui::Frame`, never straight to macroquad, so every
+prototype letterboxes the same way. A prototype that needs a camera wraps a
+`Frame` rather than replacing it, as `games::leitmotif`'s `View` does.
 
 Browsers keep the audio context suspended until a real gesture. `audio.js`
 handles the resume, and the sim waits on the title screen for a first press
