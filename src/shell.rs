@@ -2,7 +2,10 @@
 //!
 //! Pure and macroquad-free, like every simulation here, so the part of the
 //! menu that can be wrong is unit-tested and the part that only draws is
-//! not. The binary's `menu` module renders whatever this says.
+//! not. The binary's `menu` module renders whatever this says, and plays
+//! the [`sfx`] this module synthesises.
+
+pub mod sfx;
 
 /// One prototype in the collection.
 ///

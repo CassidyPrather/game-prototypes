@@ -103,7 +103,7 @@ pub fn pluck(hz: f32) -> Vec<u8> {
     wav(&render(0.6, |t| {
         let next = (head + 1) % period;
         // Two-point average is the lowpass; the gain below it sets the decay.
-        let out = (line[head] + line[next]) * 0.5 * 0.996;
+        let out = f32::midpoint(line[head], line[next]) * 0.996;
         line[head] = out;
         head = next;
         // A gentle overall envelope so the tail does not hang forever.
@@ -193,8 +193,9 @@ pub fn riser() -> Vec<u8> {
 }
 
 /// Render `secs` of mono audio, then fade both ends so it starts and stops
-/// silently.
-fn render(secs: f32, mut voice: impl FnMut(f32) -> f32) -> Vec<f32> {
+/// silently. Crate-visible so the menu's own sounds share the envelope and
+/// the header these tests guard.
+pub(crate) fn render(secs: f32, mut voice: impl FnMut(f32) -> f32) -> Vec<f32> {
     let mut buffer: Vec<f32> = (0..sample_count(secs))
         .map(|i| voice(i as f32 / SAMPLE_RATE as f32))
         .collect();
@@ -234,7 +235,7 @@ pub fn decode(wav: &[u8]) -> Vec<f32> {
 ///
 /// Hand-rolled because the format's uncompressed case is a 44-byte header and
 /// pulling a crate in for it would be sillier than writing it out.
-fn wav(samples: &[f32]) -> Vec<u8> {
+pub(crate) fn wav(samples: &[f32]) -> Vec<u8> {
     let data_len = samples.len() * 2;
     let mut out = Vec::with_capacity(44 + data_len);
 

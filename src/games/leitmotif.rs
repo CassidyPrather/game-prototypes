@@ -899,7 +899,7 @@ fn draw_title(view: &View, clock: f32) {
     for i in 1..12 {
         let t = i as f32 / 12.0;
         let p = you.lerp(home, t);
-        let glow = (1.0 - ((t * 12.0 - clock * 3.0) % 12.0).abs() / 3.0).max(0.0);
+        let glow = (1.0 - (clock.mul_add(-3.0, t * 12.0) % 12.0).abs() / 3.0).max(0.0);
         view.circle(p, 2.5, with_alpha(HOME_GLOW, glow.mul_add(0.6, 0.25)));
     }
     home_glyph(view, home, 34.0, clock, HOME_GLOW);
