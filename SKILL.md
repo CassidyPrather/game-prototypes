@@ -23,12 +23,20 @@ not. Both are split the same way, project first and prototype second.
 - `src/lib.rs` — the library root.
 - `src/shell.rs` — the menu's state: `GameId`, and where the pointer is.
   Unit-tested; adding a prototype starts with a variant here.
+- `src/shell/sfx.rs` — the menu's sounds (move, hover, bump, launch,
+  back), synthesised in E major pentatonic with their gains, and tests that
+  a player mashing the menu cannot clip.
 - `src/main.rs` — the shell's loop. Menu, or the running prototype.
   Escape leaves a prototype without unloading it.
 - `src/ui.rs` — the letterboxed 800x600 `Frame` and every drawing
   primitive, shared by the menu and the prototypes. Positions are pixels,
   sizes are frame units.
-- `src/menu.rs` — the menu screen: input and cards, no state of its own.
+- `src/menu.rs` — the menu screen in wirenook's dress (wirenook.net/style):
+  a carousel of striped windows, sparkles, tick rulers, an iris into and
+  out of each prototype. Its `Screen` holds only presentation — springs and
+  timers eased toward what `shell::Menu` says.
+- `src/sounds.rs` — bakes `shell::sfx` and plays it once the player has
+  pressed something (see the autoplay rule below).
 - `src/games.rs` — the `Game` trait (`update`, `draw`) and the two matches
   that wire a prototype in: `load` and `emblem`.
 

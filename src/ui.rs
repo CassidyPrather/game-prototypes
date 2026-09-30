@@ -9,15 +9,16 @@
 
 use macroquad::color::Color;
 use macroquad::math::Vec2;
+use macroquad::models::{Mesh, Vertex, draw_mesh};
 
 /// macroquad's vector, under the name the prototypes use for it when they
 /// have a vector type of their own.
 pub use macroquad::math::Vec2 as MqVec2;
 use macroquad::shapes::{
-    draw_arc, draw_circle, draw_circle_lines, draw_line, draw_rectangle, draw_rectangle_lines,
-    draw_triangle,
+    draw_arc, draw_circle, draw_circle_lines, draw_line, draw_poly, draw_rectangle,
+    draw_rectangle_lines, draw_triangle,
 };
-use macroquad::text::{draw_text, measure_text};
+use macroquad::text::{Font, TextParams, draw_text_ex, measure_text};
 
 /// The box everything is laid out in, in frame units.
 pub const FRAME_W: f32 = 800.0;
@@ -103,6 +104,8 @@ impl Frame {
         draw_circle_lines(p.x, p.y, radius * self.scale, thickness * self.scale, color);
     }
 
+    // The segment count is clamped positive before the cast.
+    #[allow(clippy::cast_sign_loss)]
     pub fn arc(
         &self,
         p: Vec2,
@@ -112,10 +115,13 @@ impl Frame {
         span_deg: f32,
         color: Color,
     ) {
+        // Enough segments that a big arc's edge stays round; never fewer
+        // than a small one has always had.
+        let sides = ((radius + thickness) * self.scale * 0.4).clamp(48.0, 240.0) as u8;
         draw_arc(
             p.x,
             p.y,
-            48,
+            sides,
             radius * self.scale,
             from_deg,
             thickness * self.scale,
@@ -157,6 +163,75 @@ impl Frame {
         draw_triangle(a, b, c, color);
     }
 
+    /// A regular polygon of `sides` around `p`, turned by `rotation_deg`.
+    /// Many sides make a smoother circle than [`Frame::circle`] does, which
+    /// matters once one fills the screen.
+    pub fn poly(&self, p: Vec2, sides: u8, radius: f32, rotation_deg: f32, color: Color) {
+        draw_poly(p.x, p.y, sides, radius * self.scale, rotation_deg, color);
+    }
+
+    /// The outline of a regular polygon, drawn outward from `radius`.
+    pub fn poly_lines(
+        &self,
+        p: Vec2,
+        sides: u8,
+        radius: f32,
+        rotation_deg: f32,
+        thickness: f32,
+        color: Color,
+    ) {
+        let rot = rotation_deg.to_radians();
+        let corners: Vec<Vec2> = (0..sides)
+            .map(|i| {
+                let angle = f32::from(i).mul_add(std::f32::consts::TAU / f32::from(sides), rot);
+                p + Vec2::from_angle(angle) * (radius * self.scale)
+            })
+            .collect();
+        self.outline(&corners, thickness, color);
+    }
+
+    /// A closed outline through pixel positions.
+    pub fn outline(&self, corners: &[Vec2], thickness: f32, color: Color) {
+        for (i, &a) in corners.iter().enumerate() {
+            let b = corners[(i + 1) % corners.len()];
+            self.line(a, b, thickness, color);
+            // A dot on every corner, so thick outlines meet without a notch.
+            self.circle(a, thickness * 0.5, color);
+        }
+    }
+
+    /// A rectangle shaded between four corner colours, clockwise from the
+    /// top left. Stands in for a CSS gradient.
+    pub fn gradient(&self, p: Vec2, size: Vec2, corners: [Color; 4]) {
+        let size = size * self.scale;
+        let points = [
+            p,
+            p + Vec2::new(size.x, 0.0),
+            p + size,
+            p + Vec2::new(0.0, size.y),
+        ];
+        draw_mesh(&Mesh {
+            vertices: points
+                .iter()
+                .zip(corners)
+                .map(|(at, color)| Vertex::new(at.x, at.y, 0.0, 0.0, 0.0, color))
+                .collect(),
+            indices: vec![0, 1, 2, 0, 2, 3],
+            texture: None,
+        });
+    }
+
+    /// A four-pointed sparkle, the star the wirenook wave field is made of.
+    pub fn sparkle(&self, p: Vec2, radius: f32, color: Color) {
+        let reach = radius * self.scale;
+        let waist = reach * 0.39;
+        for (along, across) in [(Vec2::Y, Vec2::X), (Vec2::X, Vec2::Y)] {
+            for tip in [p + along * reach, p - along * reach] {
+                Self::triangle(tip, p + across * waist, p - across * waist, color);
+            }
+        }
+    }
+
     /// Font size in pixels for a frame-unit text size.
     // Sizes are positive constants, so the cast cannot lose a sign.
     #[allow(clippy::cast_sign_loss)]
@@ -166,15 +241,30 @@ impl Frame {
 
     /// Text centred on `p`.
     pub fn text_centred(&self, text: &str, p: Vec2, size: f32, color: Color) {
+        self.label(None, text, p, size, color);
+    }
+
+    /// Text centred on `p` in a font of the caller's, or the built-in one.
+    pub fn label(&self, font: Option<&Font>, text: &str, p: Vec2, size: f32, color: Color) {
         let px = self.px(size);
-        let dims = measure_text(text, None, px, 1.0);
-        draw_text(
+        let dims = measure_text(text, font, px, 1.0);
+        draw_text_ex(
             text,
             dims.width.mul_add(-0.5, p.x),
             dims.offset_y.mul_add(0.5, p.y),
-            f32::from(px),
-            color,
+            TextParams {
+                font,
+                font_size: px,
+                color,
+                ..TextParams::default()
+            },
         );
+    }
+
+    /// How wide [`Frame::label`] would draw `text`, in frame units.
+    #[must_use]
+    pub fn label_width(&self, font: Option<&Font>, text: &str, size: f32) -> f32 {
+        measure_text(text, font, self.px(size), 1.0).width / self.scale
     }
 
     /// One character, centred on `p`.

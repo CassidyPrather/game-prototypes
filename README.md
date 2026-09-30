@@ -12,15 +12,23 @@ turns input into a frame struct and state into shapes and sound.
 
 ## The menu
 
-The binary opens on a menu of prototypes. Each card is mostly the toy's own
-emblem, drawn by the toy, because the prototypes are meant to read without
-reading; the name is there so a shelf of them stays usable.
+The binary opens on a menu of prototypes, dressed in
+[wirenook's style](https://wirenook.net/style/): a sky gradient, a wave field
+of sparkles, tick rulers that follow the pointer, and one striped window per
+prototype in a carousel. Each window is mostly the toy's own emblem, drawn
+by the toy on a night-sky screen, because the prototypes are meant to read
+without reading; the name is there so a shelf of them stays usable.
 
 | Key | Action |
 | --- | --- |
-| Up / Down, W / S | Move between prototypes |
-| Enter, or click a card | Start the one under the pointer |
+| Arrows, WASD, mouse wheel | Move along the carousel |
+| Enter, or click the centre window | Start that prototype |
+| Click a window peeking in at the side | Bring it to the centre |
 | Escape | Leave a prototype for the menu |
+
+Moving, hovering, hitting the end of the shelf, starting and leaving each
+have a short synthesised sound and a bit of motion; starting closes an iris
+on the chosen window and opens it again on the prototype.
 
 Leaving a prototype does not unload it, so coming back is a pause rather
 than another wait on its sound bank. Starting a fresh run is the
@@ -36,12 +44,14 @@ prototype's own business; Leitmotif does it with `R`.
 
 - `src/lib.rs` — the library: everything pure and testable.
   - `src/shell.rs` — the menu's own state, which prototype it points at.
+    - `src/shell/sfx.rs` — the menu's sounds, synthesised and tested.
   - `src/leitmotif/` — one prototype's simulation, score, synthesis and mix.
 - `src/main.rs` — the shell's loop: the menu, or whichever prototype is
   running.
   - `src/ui.rs` — the letterboxed 800x600 frame and the drawing primitives
     the menu and every prototype share.
-  - `src/menu.rs` — the menu screen, reading input and drawing cards.
+  - `src/menu.rs` — the menu screen: input, motion and drawing.
+  - `src/sounds.rs` — bakes the menu's sounds and plays them.
   - `src/games.rs` — the `Game` trait, and the two matches that wire a
     prototype in: how to load it, and how to draw its emblem.
   - `src/games/leitmotif.rs` — that prototype's macroquad frontend.
@@ -69,7 +79,8 @@ Format: `cargo fmt`
 
 Test: `cargo test`
 
-Audio headroom report: `cargo test --lib mix:: -- --nocapture`
+Audio headroom report: `cargo test --lib mix:: -- --nocapture` (and
+`sfx::` for the menu's sounds)
 
 Web build: `./scripts/build-web.sh` (needs
 `rustup target add wasm32-unknown-unknown`; uses `wasm-opt` from
