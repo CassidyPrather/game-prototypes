@@ -103,7 +103,7 @@ pub fn pluck(hz: f32) -> Vec<u8> {
     wav(&render(0.6, |t| {
         let next = (head + 1) % period;
         // Two-point average is the lowpass; the gain below it sets the decay.
-        let out = (line[head] + line[next]) * 0.5 * 0.996;
+        let out = f32::midpoint(line[head], line[next]) * 0.996;
         line[head] = out;
         head = next;
         // A gentle overall envelope so the tail does not hang forever.

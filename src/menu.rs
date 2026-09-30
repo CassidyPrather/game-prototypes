@@ -378,7 +378,7 @@ impl Screen {
         // The entrance: every window rises into place, neighbours a beat
         // behind the centre.
         let rise = ease_out_back(unit((self.shown - offset.abs().mul_add(0.08, 0.1)) / 0.55));
-        centre.y += (1.0 - rise) * 90.0;
+        centre.y = (1.0 - rise).mul_add(90.0, centre.y);
 
         if index == chosen {
             let lift = ease_out_cubic(self.lift);
@@ -387,7 +387,7 @@ impl Screen {
             centre.y -= lift.mul_add(6.0, self.hover_ease * 4.0) + float;
             if self.shake < 0.6 {
                 let wobble = (self.shake * 48.0).sin() * (-self.shake * 9.0).exp();
-                centre.x += wobble * 12.0 * self.shake_dir;
+                centre.x = (wobble * 12.0).mul_add(self.shake_dir, centre.x);
             }
             if let Some((_, age)) = self.launch {
                 // Squash on the press, then spring back past full size.

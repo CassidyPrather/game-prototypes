@@ -742,7 +742,8 @@ impl Sim {
             self.sink_walls();
             self.burn_strikes();
             self.gate_shut = (self.gate_shut - TICK_DT).max(0.0);
-            self.spin += (self.spin_target - self.spin) * (1.0 - (-SPIN_EASE * TICK_DT).exp());
+            self.spin = (self.spin_target - self.spin)
+                .mul_add(1.0 - (-SPIN_EASE * TICK_DT).exp(), self.spin);
         }
         self.move_player(input.move_dir);
         self.take_hits();
@@ -759,7 +760,7 @@ impl Sim {
             self.cues.push(Cue::Fermata { held: holding });
         }
         if holding {
-            self.pool -= FERMATA_DRAIN * TICK_DT;
+            self.pool = FERMATA_DRAIN.mul_add(-TICK_DT, self.pool);
             if self.pool <= 0.0 {
                 self.pool = 0.0;
                 self.pool_dry = true;
