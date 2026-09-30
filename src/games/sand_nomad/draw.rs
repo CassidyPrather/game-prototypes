@@ -231,7 +231,17 @@ fn place_card(g: &Game, site: Site) {
         18.0,
         (wants.len() as f32).mul_add(18.0, 8.0 + if trader.is_some() { 34.0 } else { 0.0 }),
     ) + if site.waystone().is_some() { 14.0 } else { 0.0 };
-    let h = 42.0;
+    // The motives on the rug there, so a route can be planned: word gets
+    // around the basin.
+    let mut sold: Vec<Motive> = place
+        .rug
+        .placed()
+        .iter()
+        .filter_map(|p| p.item.motive)
+        .collect();
+    sold.sort();
+    sold.dedup();
+    let h = if sold.is_empty() { 42.0 } else { 52.0 };
     // Beside the place, on the side away from the middle, so the course
     // to it stays in view.
     let x = if p.x < MAP_W / 2.0 {
@@ -261,6 +271,11 @@ fn place_card(g: &Game, site: Site) {
         rect(cx + 12.0, y + 9.0, 5.0, 1.0, ink('p'));
         rect(cx + 14.0, y + 7.0, 1.0, 5.0, ink('p'));
         cx += 18.0;
+    }
+    for (i, &m) in sold.iter().enumerate() {
+        let mx = (i as f32).mul_add(10.0, x + 4.0);
+        rect(mx - 1.0, y + h - 12.0, 10.0, 10.0, ink('0'));
+        sprite(&g.art, art::mark(m), mx, y + h - 11.0);
     }
     for (here, s) in services {
         if here {
@@ -1257,7 +1272,7 @@ fn ending(g: &Game) {
             }
         }
         // Start again.
-        let k = vec2(200.0, 110.0);
+        let k = layout::AGAIN.center();
         rect(k.x - 7.0, k.y - 7.0, 14.0, 14.0, ink('7'));
         outline(k.x - 7.0, k.y - 7.0, 14.0, 14.0, ink('0'));
         // An R, drawn.

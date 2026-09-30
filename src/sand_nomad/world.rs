@@ -310,7 +310,7 @@ pub const START_HOLD: [(Kind, Option<Motive>, u8, u8, u8, bool); 12] = [
     (Kind::Coins, None, 0, 6, 0, false),
     (Kind::Salt, None, 0, 7, 0, false),
     (Kind::Flute, Some(Motive::Bliss), 1, 1, 0, false),
-    (Kind::Rug, Some(Motive::Bliss), 0, 2, 0, false),
+    (Kind::Rug, Some(Motive::Bliss), 0, 3, 0, false),
     (Kind::Comb, Some(Motive::Love), 2, 2, 2, false),
     (Kind::Beads, Some(Motive::Repose), 1, 4, 2, false),
     (Kind::Compass, None, 0, 5, 0, false),

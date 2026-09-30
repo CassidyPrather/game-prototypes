@@ -78,6 +78,8 @@ pub mod layout {
     pub const STONE_STEP: f32 = 17.0;
     /// Top left of the day tally.
     pub const TALLY: Vec2 = vec2(170.0, 262.0);
+    /// The key cap to start again, once home.
+    pub const AGAIN: Rect = Rect::new(192.0, 102.0, 16.0, 16.0);
     /// How close to a place on the map counts as pointing at it.
     pub const PLACE_REACH: f32 = 15.0;
 
@@ -357,6 +359,9 @@ impl Game {
         if self.journey.phase() == Phase::Home {
             if is_mouse_button_pressed(MouseButton::Left) {
                 self.audio.wake();
+                if self.ended > 1.5 && layout::AGAIN.contains(pos) {
+                    self.restart();
+                }
             }
             return;
         }
@@ -447,9 +452,17 @@ impl Game {
                     .arrange(id, cell.x as i32, cell.y as i32, carried.turned);
                 r
             }
-            (From::Hold, Some(Spot::Pan(_) | Spot::Panned(..) | Spot::Trader | Spot::Hands)) => {
-                self.journey.offer(id)
-            }
+            (
+                From::Hold,
+                Some(
+                    Spot::Pan(_)
+                    | Spot::Panned(..)
+                    | Spot::Trader
+                    | Spot::Hands
+                    | Spot::Rug
+                    | Spot::Rugged(_),
+                ),
+            ) => self.journey.offer(id),
             (From::Hold, Some(Spot::Waystone)) => self.journey.give(id),
             (From::Hold, Some(Spot::Service(Service::Pyre))) => self.journey.burn(id),
             (From::Hold, Some(Spot::Service(Service::Bench))) => self.journey.renew(id),
@@ -543,7 +556,10 @@ impl Game {
             }
             _ => {}
         }
-        if reading && !matches!(spot, Spot::Loupe) {
+        // The loupe stays up while there are things to read; anything else
+        // puts it down.
+        let read_a_thing = matches!(spot, Spot::Held(_) | Spot::Rugged(_) | Spot::Panned(..));
+        if reading && !read_a_thing && !matches!(spot, Spot::Loupe) {
             self.hand.loupe = false;
         }
     }
