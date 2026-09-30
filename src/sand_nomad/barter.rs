@@ -193,7 +193,7 @@ pub enum Emote {
 }
 
 /// A thing's price before anyone thinks about weight.
-fn base_price(culture: Culture, item: &Item) -> i32 {
+fn base_price(culture: Culture, item: Item) -> i32 {
     if culture == Culture::Bones {
         return 0;
     }
@@ -221,7 +221,7 @@ fn base_price(culture: Culture, item: &Item) -> i32 {
 #[must_use]
 pub fn receive(culture: Culture, item: &Item) -> Option<i32> {
     let taste = culture.taste();
-    let base = base_price(culture, item);
+    let base = base_price(culture, *item);
     if item.is_anima() {
         return taste.anima.map(|bonus| base + bonus);
     }
@@ -233,7 +233,7 @@ pub fn receive(culture: Culture, item: &Item) -> Option<i32> {
 /// rid of it.
 #[must_use]
 pub fn give(culture: Culture, item: &Item) -> i32 {
-    base_price(culture, item).max(-2)
+    base_price(culture, *item).max(-2)
 }
 
 /// The face `culture` makes at being handed `item`.
@@ -247,7 +247,7 @@ pub fn reaction(culture: Culture, item: &Item) -> Emote {
         return Emote::Zeal;
     }
     if price < 0 {
-        let weightless = base_price(culture, item);
+        let weightless = base_price(culture, *item);
         return if weightless >= 0 && item.weight > 0 {
             Emote::Pain
         } else {
@@ -313,7 +313,10 @@ mod tests {
         let drifter_heavy = receive(Culture::Drifter, &heavy).unwrap();
         assert!(drifter_heavy < drifter_light);
         assert!(drifter_heavy < 0, "a heavy locket is a burden to a drifter");
-        assert_eq!(receive(Culture::Harbor, &light), receive(Culture::Harbor, &heavy));
+        assert_eq!(
+            receive(Culture::Harbor, &light),
+            receive(Culture::Harbor, &heavy)
+        );
         assert!(
             receive(Culture::PyreKin, &heavy) > receive(Culture::PyreKin, &light),
             "the pyre-kin feed weight to their ships"
@@ -354,7 +357,11 @@ mod tests {
         let flag = item(Kind::Flag, Some(Motive::Zeal), 0);
         assert_eq!(reaction(Culture::Thesean, &flag), Emote::Repose);
         let pistol = item(Kind::Pistol, Some(Motive::Zeal), 0);
-        assert_eq!(parting(Culture::Keeper, &pistol), Emote::Bliss, "glad to be rid");
+        assert_eq!(
+            parting(Culture::Keeper, &pistol),
+            Emote::Bliss,
+            "glad to be rid"
+        );
         assert!(give(Culture::Keeper, &pistol) < 0);
     }
 

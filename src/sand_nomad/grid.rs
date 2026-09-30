@@ -144,7 +144,10 @@ impl Grid {
     #[must_use]
     pub fn fits(&self, item: &Item, x: i32, y: i32, turned: bool, ignore: Option<ItemId>) -> bool {
         let (w, h) = item.footprint(turned);
-        if x < 0 || y < 0 || x + i32::from(w) > i32::from(self.w) || y + i32::from(h) > i32::from(self.h)
+        if x < 0
+            || y < 0
+            || x + i32::from(w) > i32::from(self.w)
+            || y + i32::from(h) > i32::from(self.h)
         {
             return false;
         }
@@ -161,7 +164,10 @@ impl Grid {
             Some(p.item.id) == ignore || {
                 let (pw, ph) = p.size();
                 let (gw, gh) = ghost.size();
-                ghost.x + gw <= p.x || p.x + pw <= ghost.x || ghost.y + gh <= p.y || p.y + ph <= ghost.y
+                ghost.x + gw <= p.x
+                    || p.x + pw <= ghost.x
+                    || ghost.y + gh <= p.y
+                    || p.y + ph <= ghost.y
             }
         })
     }
@@ -196,7 +202,11 @@ impl Grid {
                 .copied()
                 .collect(),
         };
-        let turns: &[bool] = if item.can_turn() { &[false, true] } else { &[false] };
+        let turns: &[bool] = if item.can_turn() {
+            &[false, true]
+        } else {
+            &[false]
+        };
         for y in 0..self.h {
             for x in 0..self.w {
                 for &turned in turns {
@@ -345,7 +355,10 @@ impl Grid {
             let first = (day as usize + usize::from(id.0)) % STEPS.len();
             for turn in 0..STEPS.len() {
                 let (dx, dy) = STEPS[(first + turn) % STEPS.len()];
-                let (x, y) = (i32::from(p.x) + i32::from(dx), i32::from(p.y) + i32::from(dy));
+                let (x, y) = (
+                    i32::from(p.x) + i32::from(dx),
+                    i32::from(p.y) + i32::from(dy),
+                );
                 if self.shift(id, x, y, p.turned) {
                     // In range: the shift succeeded.
                     #[allow(clippy::cast_sign_loss)]
@@ -399,9 +412,18 @@ mod tests {
     fn items_do_not_overlap_or_leave_the_grid() {
         let mut grid = Grid::new(4, 2);
         assert!(grid.place(item(1, Kind::Rug, None, 0), 0, 0, false).is_ok());
-        assert!(grid.place(item(2, Kind::Comb, None, 0), 1, 0, false).is_err());
-        assert!(grid.place(item(3, Kind::Comb, None, 0), 2, 0, false).is_ok());
-        assert!(grid.place(item(4, Kind::Rug, None, 0), 3, 0, false).is_err());
+        assert!(
+            grid.place(item(2, Kind::Comb, None, 0), 1, 0, false)
+                .is_err()
+        );
+        assert!(
+            grid.place(item(3, Kind::Comb, None, 0), 2, 0, false)
+                .is_ok()
+        );
+        assert!(
+            grid.place(item(4, Kind::Rug, None, 0), 3, 0, false)
+                .is_err()
+        );
         assert!(grid.place(item(5, Kind::Rug, None, 0), 3, 0, true).is_ok());
         assert!(!grid.fits(&item(6, Kind::Comb, None, 0), -1, 0, false, None));
         assert!(!grid.fits(&item(6, Kind::Comb, None, 0), 0, 2, false, None));
@@ -410,8 +432,12 @@ mod tests {
     #[test]
     fn shifting_ignores_the_item_itself() {
         let mut grid = Grid::new(4, 1);
-        grid.place(item(1, Kind::Rug, None, 0), 0, 0, false).unwrap();
-        assert!(grid.shift(ItemId(1), 1, 0, false), "sliding over its own cells");
+        grid.place(item(1, Kind::Rug, None, 0), 0, 0, false)
+            .unwrap();
+        assert!(
+            grid.shift(ItemId(1), 1, 0, false),
+            "sliding over its own cells"
+        );
         assert_eq!(grid.get(ItemId(1)).unwrap().x, 1);
         assert!(!grid.shift(ItemId(1), 1, 0, true), "too short to stand up");
     }
@@ -419,21 +445,33 @@ mod tests {
     #[test]
     fn neighbours_share_an_edge_not_a_corner() {
         let mut grid = Grid::new(3, 3);
-        grid.place(item(1, Kind::Comb, None, 0), 1, 1, false).unwrap();
-        grid.place(item(2, Kind::Comb, None, 0), 0, 0, false).unwrap();
-        grid.place(item(3, Kind::Comb, None, 0), 1, 0, false).unwrap();
-        grid.place(item(4, Kind::Rug, None, 0), 0, 2, false).unwrap();
-        let ids: Vec<u16> = grid.neighbours(ItemId(1)).iter().map(|p| p.item.id.0).collect();
+        grid.place(item(1, Kind::Comb, None, 0), 1, 1, false)
+            .unwrap();
+        grid.place(item(2, Kind::Comb, None, 0), 0, 0, false)
+            .unwrap();
+        grid.place(item(3, Kind::Comb, None, 0), 1, 0, false)
+            .unwrap();
+        grid.place(item(4, Kind::Rug, None, 0), 0, 2, false)
+            .unwrap();
+        let ids: Vec<u16> = grid
+            .neighbours(ItemId(1))
+            .iter()
+            .map(|p| p.item.id.0)
+            .collect();
         assert_eq!(ids, vec![3, 4]);
     }
 
     #[test]
     fn like_feeds_like_and_opposites_quarrel() {
         let mut grid = Grid::new(4, 1);
-        grid.place(item(1, Kind::Comb, Some(Motive::Love), 0), 0, 0, false).unwrap();
-        grid.place(item(2, Kind::Locket, Some(Motive::Love), 0), 1, 0, false).unwrap();
-        grid.place(item(3, Kind::Dagger, Some(Motive::Hate), 0), 2, 0, false).unwrap();
-        grid.place(item(4, Kind::Water, None, 0), 3, 0, false).unwrap();
+        grid.place(item(1, Kind::Comb, Some(Motive::Love), 0), 0, 0, false)
+            .unwrap();
+        grid.place(item(2, Kind::Locket, Some(Motive::Love), 0), 1, 0, false)
+            .unwrap();
+        grid.place(item(3, Kind::Dagger, Some(Motive::Hate), 0), 2, 0, false)
+            .unwrap();
+        grid.place(item(4, Kind::Water, None, 0), 3, 0, false)
+            .unwrap();
         assert_eq!(grid.fondness_for(ItemId(1)), 2, "one friend");
         assert_eq!(grid.fondness_for(ItemId(2)), 1, "a friend and a quarrel");
         assert_eq!(grid.fondness_for(ItemId(3)), 0, "a quarrel and water");
@@ -443,14 +481,17 @@ mod tests {
     #[test]
     fn a_woken_item_wanders_and_excites_its_neighbours() {
         let mut grid = Grid::new(3, 1);
-        grid.place(item(1, Kind::Comb, Some(Motive::Love), 6), 0, 0, false).unwrap();
-        grid.place(item(2, Kind::Shell, Some(Motive::Bliss), 0), 1, 0, false).unwrap();
+        grid.place(item(1, Kind::Comb, Some(Motive::Love), 6), 0, 0, false)
+            .unwrap();
+        grid.place(item(2, Kind::Shell, Some(Motive::Bliss), 0), 1, 0, false)
+            .unwrap();
         assert_eq!(grid.fondness_for(ItemId(2)), 2);
         let (_, wanders) = grid.pass_day(0);
         // Boxed in on the left: it cannot move up, right, down or left.
         assert!(wanders.is_empty());
         let mut grid = Grid::new(3, 2);
-        grid.place(item(1, Kind::Comb, Some(Motive::Love), 6), 0, 0, false).unwrap();
+        grid.place(item(1, Kind::Comb, Some(Motive::Love), 6), 0, 0, false)
+            .unwrap();
         let (_, wanders) = grid.pass_day(0);
         assert_eq!(wanders.len(), 1);
         assert_ne!(wanders[0].from, wanders[0].to);
@@ -459,9 +500,11 @@ mod tests {
     #[test]
     fn a_day_grows_everything_at_once() {
         let mut grid = Grid::new(2, 1);
-        grid.place(item(1, Kind::Comb, Some(Motive::Love), 5), 0, 0, false).unwrap();
+        grid.place(item(1, Kind::Comb, Some(Motive::Love), 5), 0, 0, false)
+            .unwrap();
         grid.update(ItemId(1), |i| i.fondness = 3);
-        grid.place(item(2, Kind::Locket, Some(Motive::Love), 0), 1, 0, false).unwrap();
+        grid.place(item(2, Kind::Locket, Some(Motive::Love), 0), 1, 0, false)
+            .unwrap();
         let (growth, _) = grid.pass_day(0);
         let comb = growth.iter().find(|g| g.id == ItemId(1)).unwrap();
         assert!(comb.woke);
@@ -473,8 +516,10 @@ mod tests {
     #[test]
     fn room_for_counts_what_is_leaving() {
         let mut grid = Grid::new(2, 1);
-        grid.place(item(1, Kind::Comb, None, 0), 0, 0, false).unwrap();
-        grid.place(item(2, Kind::Comb, None, 0), 1, 0, false).unwrap();
+        grid.place(item(1, Kind::Comb, None, 0), 0, 0, false)
+            .unwrap();
+        grid.place(item(2, Kind::Comb, None, 0), 1, 0, false)
+            .unwrap();
         let rug = [item(3, Kind::Rug, None, 0)];
         assert!(!grid.room_for(&rug, &[]));
         assert!(!grid.room_for(&rug, &[ItemId(1)]));

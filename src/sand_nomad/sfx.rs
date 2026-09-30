@@ -261,9 +261,13 @@ fn samples(sfx: Sfx) -> Vec<f32> {
     match sfx {
         Sfx::Lift(stuff) => handle(stuff, true),
         Sfx::Set(stuff) => handle(stuff, false),
-        Sfx::Nope => synth::render(0.18, |t| knock(t, 0.0, 140.0, 95.0, 1.0) + knock(t, 0.07, 120.0, 85.0, 0.7)),
+        Sfx::Nope => synth::render(0.18, |t| {
+            knock(t, 0.0, 140.0, 95.0, 1.0) + knock(t, 0.07, 120.0, 85.0, 0.7)
+        }),
         Sfx::Turn => swish(0.09, 0.5),
-        Sfx::Tick => synth::render(0.03, |t| (TAU * 2400.0 * t).sin() * (-t * 180.0).exp() * 0.6),
+        Sfx::Tick => synth::render(0.03, |t| {
+            (TAU * 2400.0 * t).sin() * (-t * 180.0).exp() * 0.6
+        }),
         Sfx::Pan => pan(),
         Sfx::Beam => beam(),
         Sfx::Deal => deal(),
@@ -408,7 +412,7 @@ fn swish(secs: f32, level: f32) -> Vec<f32> {
     let mut lp = (0.0_f32, 0.0_f32);
     synth::render(secs, |t| {
         let n = noise(&mut rng);
-        let cutoff = 0.08 + 0.4 * (t / secs);
+        let cutoff = 0.4f32.mul_add(t / secs, 0.08);
         lp.0 = (n - lp.0).mul_add(cutoff, lp.0);
         lp.1 = (lp.0 - lp.1).mul_add(cutoff, lp.1);
         lp.1 * (TAU * 0.5 * t / secs).sin() * level * 2.2
@@ -426,14 +430,14 @@ fn handle(stuff: Stuff, lifting: bool) -> Vec<f32> {
         Stuff::Cloth => synth::render(0.14, |t| {
             lp = (noise(&mut rng) - lp).mul_add(0.1, lp);
             let thump = (TAU * 90.0 * t).sin() * (-t * 45.0).exp() * 0.6;
-            (lp * 2.5 * (-t * 30.0).exp() + thump) * level
+            (lp * 2.5).mul_add((-t * 30.0).exp(), thump) * level
         }),
         Stuff::Metal => synth::render(0.35, |t| {
             let base = if lifting { 1320.0 } else { 990.0 };
-            let ring = (TAU * base * t).sin() * (-t * 14.0).exp() * 0.4
-                + (TAU * base * 2.76 * t).sin() * (-t * 22.0).exp() * 0.25;
+            let peal = ((TAU * base * 2.76 * t).sin() * (-t * 22.0).exp())
+                .mul_add(0.25, (TAU * base * t).sin() * (-t * 14.0).exp() * 0.4);
             let hit = knock(t, 0.0, 400.0, 180.0, 0.5);
-            (ring + hit) * level
+            (peal + hit) * level
         }),
         Stuff::Clay => synth::render(0.2, |t| {
             let base = if lifting { 1760.0 } else { 1480.0 };
@@ -443,10 +447,14 @@ fn handle(stuff: Stuff, lifting: bool) -> Vec<f32> {
         }),
         Stuff::Bone => synth::render(0.12, |t| {
             let click = (TAU * 900.0 * t).sin() * (-t * 70.0).exp() * 0.6;
-            let clack = (TAU * 1400.0 * (t - 0.018).max(0.0)).sin()
-                * if t > 0.018 { (-(t - 0.018) * 90.0).exp() } else { 0.0 }
+            let rattle = (TAU * 1400.0 * (t - 0.018).max(0.0)).sin()
+                * if t > 0.018 {
+                    (-(t - 0.018) * 90.0).exp()
+                } else {
+                    0.0
+                }
                 * 0.4;
-            (click + clack) * level
+            (click + rattle) * level
         }),
         Stuff::Paper => synth::render(0.14, |t| {
             let n = noise(&mut rng);
@@ -465,8 +473,10 @@ fn handle(stuff: Stuff, lifting: bool) -> Vec<f32> {
 fn pan() -> Vec<f32> {
     synth::render(0.5, |t| {
         let wobble = (TAU * 7.0 * t).sin().mul_add(0.004, 1.0);
-        let ring = (TAU * 1250.0 * wobble * t).sin() * (-t * 9.0).exp() * 0.35
-            + (TAU * 1250.0 * 2.4 * t).sin() * (-t * 16.0).exp() * 0.2;
+        let ring = ((TAU * 1250.0 * 2.4 * t).sin() * (-t * 16.0).exp()).mul_add(
+            0.2,
+            (TAU * 1250.0 * wobble * t).sin() * (-t * 9.0).exp() * 0.35,
+        );
         ring + knock(t, 0.0, 300.0, 160.0, 0.45)
     })
 }
@@ -498,7 +508,11 @@ fn face(emote: Emote) -> Vec<f32> {
             return 0.0;
         }
         let env = (u / 0.01).min(1.0) * ((len - u) / 0.03).min(1.0);
-        ((TAU * hz * u).sin() + (TAU * hz * 2.0 * u).sin() * 0.2) * env * 0.5
+        (TAU * hz * 2.0 * u)
+            .sin()
+            .mul_add(0.2, (TAU * hz * u).sin())
+            * env
+            * 0.5
     };
     match emote {
         Emote::Love => synth::render(0.4, |t| tone(t, 0.0, FS4, 0.14) + tone(t, 0.14, A4, 0.24)),
@@ -516,7 +530,11 @@ fn face(emote: Emote) -> Vec<f32> {
         }),
         Emote::Hate => synth::render(0.3, |t| {
             let saw = ((D3 * t) % 1.0).mul_add(2.0, -1.0);
-            let square = if (D3 * 1.06 * t) % 1.0 < 0.5 { 1.0 } else { -1.0 };
+            let square = if (D3 * 1.06 * t) % 1.0 < 0.5 {
+                1.0
+            } else {
+                -1.0
+            };
             (saw + square * 0.5) * (-t * 7.0).exp() * 0.35
         }),
         Emote::Pain => synth::render(0.45, |t| {
@@ -540,17 +558,19 @@ fn ponder() -> Vec<f32> {
     let mut lp = (0.0_f32, 0.0_f32);
     synth::render(SECS, |t| {
         let n = noise(&mut rng);
-        let cutoff = 0.05 + 0.1 * (t / SECS);
+        let cutoff = 0.1f32.mul_add(t / SECS, 0.05);
         lp.0 = (n - lp.0).mul_add(cutoff, lp.0);
         lp.1 = (lp.0 - lp.1).mul_add(cutoff, lp.1);
         let envelope = (t / SECS).powi(2) * ((SECS - t) / 0.15).min(1.0);
-        lp.1 * envelope * 4.0 + chime(t, SECS - 0.2, D5 * 2.0, 8.0) * 0.08
+        (lp.1 * envelope).mul_add(4.0, chime(t, SECS - 0.2, D5 * 2.0, 8.0) * 0.08)
     })
 }
 
 /// A stone dropped into sand: a thing grew heavier.
 fn heavier() -> Vec<f32> {
-    synth::render(0.45, |t| knock(t, 0.0, 120.0, 70.0, 0.9) + sand(t, 0.3) * 0.5)
+    synth::render(0.45, |t| {
+        knock(t, 0.0, 120.0, 70.0, 0.9) + sand(t, 0.3) * 0.5
+    })
 }
 
 /// Waking: a heartbeat under a rising, wavering glissando.
@@ -592,10 +612,12 @@ fn sip() -> Vec<f32> {
         if u < 0.0 {
             return 0.0;
         }
-        let hz = from * (1.0 + u * 8.0);
+        let hz = from * u.mul_add(8.0, 1.0);
         (TAU * hz * u).sin() * (-u * 30.0).exp()
     };
-    synth::render(0.3, |t| (bubble(t, 0.0, 380.0) + bubble(t, 0.11, 460.0) * 0.8) * 0.5)
+    synth::render(0.3, |t| {
+        f32::midpoint(bubble(t, 0.0, 380.0), bubble(t, 0.11, 460.0) * 0.8)
+    })
 }
 
 /// A dry rasp.
@@ -651,7 +673,7 @@ fn burn() -> Vec<f32> {
     let mut crackle = 0.0_f32;
     synth::render(SECS, |t| {
         let n = noise(&mut rng);
-        let cutoff = 0.04 + 0.2 * (-t * 3.0).exp();
+        let cutoff = 0.2f32.mul_add((-t * 3.0).exp(), 0.04);
         lp.0 = (n - lp.0).mul_add(cutoff, lp.0);
         lp.1 = (lp.0 - lp.1).mul_add(cutoff, lp.1);
         let whoomph = lp.1 * 6.0 * (t / 0.08).min(1.0) * (-t * 2.2).exp();
@@ -660,7 +682,7 @@ fn burn() -> Vec<f32> {
             crackle = pops.f32().mul_add(0.5, 0.5);
         }
         crackle *= 0.992;
-        whoomph + n * crackle * 0.5
+        (n * crackle).mul_add(0.5, whoomph)
     })
 }
 
@@ -700,7 +722,7 @@ fn guns() -> Vec<f32> {
                 if u < 0.0 {
                     0.0
                 } else {
-                    knock(t, at, 70.0, 38.0, 0.8) + lp.1 * 12.0 * (-u * 3.0).exp()
+                    (lp.1 * 12.0).mul_add((-u * 3.0).exp(), knock(t, at, 70.0, 38.0, 0.8))
                 }
             })
             .sum::<f32>()
@@ -729,7 +751,7 @@ fn drone() -> Vec<f32> {
     const SECS: f32 = 3.0;
     synth::render(SECS, |t| {
         let beat = (TAU * 3.0 * t).sin().mul_add(0.3, 0.7);
-        let hum = (TAU * 58.0 * t).sin() + (TAU * 116.5 * t).sin() * 0.5;
+        let hum = (TAU * 116.5 * t).sin().mul_add(0.5, (TAU * 58.0 * t).sin());
         hum * beat * (TAU * 0.5 * t / SECS).sin() * 0.45
     })
 }
@@ -821,7 +843,10 @@ mod tests {
         for sfx in Sfx::all().into_iter().filter(|&s| s != Sfx::Wind) {
             let samples = decoded(sfx);
             let ends = [samples[0], samples[samples.len() - 1]];
-            assert!(ends.iter().all(|s| s.abs() < 2e-3), "{sfx:?} clicks: {ends:?}");
+            assert!(
+                ends.iter().all(|s| s.abs() < 2e-3),
+                "{sfx:?} clicks: {ends:?}"
+            );
         }
     }
 
@@ -829,7 +854,10 @@ mod tests {
     fn the_wind_loops_without_a_seam() {
         let samples = decoded(Sfx::Wind);
         let (first, last) = (samples[0], samples[samples.len() - 1]);
-        assert!((first - last).abs() < 0.02, "the loop jumps {first} -> {last}");
+        assert!(
+            (first - last).abs() < 0.02,
+            "the loop jumps {first} -> {last}"
+        );
     }
 
     #[test]
@@ -847,7 +875,8 @@ mod tests {
         // The worst the game does at once: a deal with faces flying, a
         // dawn with everything growing and a thing waking, water, guns
         // far off, over the wind — and a player clicking through all of it.
-        let sounds: Vec<(Sfx, Vec<f32>)> = Sfx::all().into_iter().map(|s| (s, decoded(s))).collect();
+        let sounds: Vec<(Sfx, Vec<f32>)> =
+            Sfx::all().into_iter().map(|s| (s, decoded(s))).collect();
         let play = |mixer: &mut Mixer, at: f32, sfx: Sfx| {
             let (_, samples) = sounds.iter().find(|(s, _)| *s == sfx).unwrap();
             mixer.play(at, samples, sfx.gain());
@@ -856,7 +885,11 @@ mod tests {
         play(&mut mixer, 0.0, Sfx::Wind);
         for step in 0..12 {
             let at = step as f32 * 0.08;
-            play(&mut mixer, at, Sfx::Set(Stuff::ALL[step % Stuff::ALL.len()]));
+            play(
+                &mut mixer,
+                at,
+                Sfx::Set(Stuff::ALL[step % Stuff::ALL.len()]),
+            );
             play(&mut mixer, at + 0.02, Sfx::Lift(Stuff::Metal));
             play(&mut mixer, at + 0.03, Sfx::Tick);
         }

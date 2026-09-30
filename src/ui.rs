@@ -19,6 +19,7 @@ use macroquad::shapes::{
     draw_rectangle_lines, draw_triangle,
 };
 use macroquad::text::{Font, TextParams, draw_text_ex, measure_text};
+use macroquad::texture::{DrawTextureParams, Texture2D, draw_texture_ex};
 
 /// The box everything is laid out in, in frame units.
 pub const FRAME_W: f32 = 800.0;
@@ -230,6 +231,24 @@ impl Frame {
                 Self::triangle(tip, p + across * waist, p - across * waist, color);
             }
         }
+    }
+
+    /// A texture stretched over a box of the frame, `size` frame units from
+    /// `p` (pixels). A prototype that paints at low resolution — pixel art
+    /// into a render target — hands its canvas over through this, so it
+    /// letterboxes like everything else.
+    pub fn image(&self, texture: &Texture2D, p: Vec2, size: Vec2, flip_y: bool) {
+        draw_texture_ex(
+            texture,
+            p.x,
+            p.y,
+            Color::new(1.0, 1.0, 1.0, 1.0),
+            DrawTextureParams {
+                dest_size: Some(size * self.scale),
+                flip_y,
+                ..DrawTextureParams::default()
+            },
+        );
     }
 
     /// Font size in pixels for a frame-unit text size.

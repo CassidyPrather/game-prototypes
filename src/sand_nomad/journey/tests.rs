@@ -141,13 +141,19 @@ fn the_scale_decides_and_the_goods_change_hands() {
     assert_eq!(j.deal(), Err(Refusal::Short));
     let rug = find_kind(&j, Kind::Rug);
     j.offer(rug).unwrap();
-    assert!(j.cues().contains(&Cue::Face(Emote::Zeal)), "drifters want rugs");
+    assert!(
+        j.cues().contains(&Cue::Face(Emote::Zeal)),
+        "drifters want rugs"
+    );
     assert!(j.balance().unwrap() >= 0);
     j.deal().unwrap();
     assert!(j.hold().get(doll).is_some());
     assert!(j.hold().get(rug).is_none());
     assert!(j.rug().get(rug).is_some());
-    assert!(!j.hold().get(doll).unwrap().item.known, "bought sight unseen");
+    assert!(
+        !j.hold().get(doll).unwrap().item.known,
+        "bought sight unseen"
+    );
 }
 
 #[test]
@@ -290,10 +296,10 @@ impl Bot {
     }
 
     /// The best any trader later on the route would give for `item`.
-    fn later_price(&self, item: &Item, rest: &[Site]) -> i32 {
+    fn later_price(&self, item: Item, rest: &[Site]) -> i32 {
         rest.iter()
             .filter_map(|s| self.j.place(*s).trader)
-            .filter_map(|c| receive(c, item))
+            .filter_map(|c| receive(c, &item))
             .max()
             .unwrap_or(0)
     }
@@ -339,7 +345,9 @@ impl Bot {
             .take(2)
             .map(|w| watches_between(w[0], w[1]) / WATCHES_PER_DAY + 1)
             .sum::<u32>()
-            + rest.first().map_or(0, |&s| watches_between(self.j.at(), s) / WATCHES_PER_DAY + 1);
+            + rest.first().map_or(0, |&s| {
+                watches_between(self.j.at(), s) / WATCHES_PER_DAY + 1
+            });
         while self.j.sips() < need {
             let jar = self
                 .j
@@ -361,7 +369,7 @@ impl Bot {
             .iter()
             .map(|p| p.item)
             .filter(|i| i.motive.is_none() && i.kind != Kind::Water)
-            .filter(|i| self.later_price(i, rest) - barter::give(culture, i) >= 3)
+            .filter(|i| self.later_price(*i, rest) - barter::give(culture, i) >= 3)
             .collect();
         for item in bargains {
             let free = self.free_cells();
@@ -419,7 +427,7 @@ impl Bot {
             .collect();
         payment.sort_by_key(|i| {
             let here = receive(culture, i).unwrap();
-            (i.weight == 0, self.later_price(i, rest) - here, here)
+            (i.weight == 0, self.later_price(*i, rest) - here, here)
         });
         for i in payment {
             if self.j.balance().is_some_and(|b| b >= 0) {
@@ -565,7 +573,7 @@ fn the_circuit_fits_in_under_an_hour() {
         })
         .sum::<f32>();
     let actions = bot.deals * 6 + bot.appraisals + 11 * 4;
-    let minutes = (sailing_secs + actions as f32 * 6.0) / 60.0;
+    let minutes = (actions as f32).mul_add(6.0, sailing_secs) / 60.0;
     println!("roughly {minutes:.0} minutes of play, {sailing_secs:.0} s of it sailing");
     assert!(minutes < 45.0);
 }

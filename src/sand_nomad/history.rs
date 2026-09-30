@@ -27,8 +27,8 @@ pub fn convoy(day: f32) -> Option<[(f32, f32); 3]> {
         let t = t.clamp(0.0, 1.0);
         let u = 1.0 - t;
         (
-            u * u * fort.0 + 2.0 * u * t * bend.0 + t * t * reef.0,
-            u * u * fort.1 + 2.0 * u * t * bend.1 + t * t * reef.1,
+            (t * t).mul_add(reef.0, (2.0 * u * t).mul_add(bend.0, u * u * fort.0)),
+            (t * t).mul_add(reef.1, (2.0 * u * t).mul_add(bend.1, u * u * fort.1)),
         )
     };
     let lead = if (SET_OUT..raid).contains(&day) {
@@ -69,10 +69,7 @@ pub fn dirigible(day: f32) -> Option<(f32, f32)> {
     let senate = Site::Senate.pos();
     let over = (senate.0 + 6.0, senate.1 - 34.0);
     let lerp = |a: (f32, f32), b: (f32, f32), t: f32| {
-        (
-            (b.0 - a.0).mul_add(t, a.0),
-            (b.1 - a.1).mul_add(t, a.1),
-        )
+        ((b.0 - a.0).mul_add(t, a.0), (b.1 - a.1).mul_add(t, a.1))
     };
     let from = (-30.0, MAP_H + 20.0);
     let to = (430.0, -30.0);
@@ -109,7 +106,9 @@ pub fn towers_up(day: f32) -> usize {
 pub fn fireworks(day: f32) -> Option<f32> {
     const FROM: f32 = 24.5;
     const UNTIL: f32 = 25.5;
-    (FROM..UNTIL).contains(&day).then(|| (day - FROM) / (UNTIL - FROM))
+    (FROM..UNTIL)
+        .contains(&day)
+        .then(|| (day - FROM) / (UNTIL - FROM))
 }
 
 /// How far across the sky the comet is, `0..1`, while it is visible.
@@ -117,7 +116,9 @@ pub fn fireworks(day: f32) -> Option<f32> {
 pub fn comet(day: f32) -> Option<f32> {
     const FROM: f32 = 28.0;
     const UNTIL: f32 = 44.0;
-    (FROM..UNTIL).contains(&day).then(|| (day - FROM) / (UNTIL - FROM))
+    (FROM..UNTIL)
+        .contains(&day)
+        .then(|| (day - FROM) / (UNTIL - FROM))
 }
 
 /// Something the whole basin hears.
@@ -183,7 +184,10 @@ mod tests {
             let now = dirigible(day);
             if let (Some(a), Some(b)) = (last, now) {
                 let (a, b): ((f32, f32), (f32, f32)) = (a, b);
-                assert!((a.0 - b.0).hypot(a.1 - b.1) < 8.0, "dirigible jumps at {day}");
+                assert!(
+                    (a.0 - b.0).hypot(a.1 - b.1) < 8.0,
+                    "dirigible jumps at {day}"
+                );
             }
             last = now;
         }

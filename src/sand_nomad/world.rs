@@ -261,6 +261,41 @@ impl Site {
     }
 }
 
+/// The lie of the land, one character per 16-pixel tile of the map.
+///
+/// The steppe's grass along the top (`g`) above the cliffs of the old shore
+/// (`c`), open sand (`s`), dunes (`d`), the white salt flats (`w`), cracked
+/// clay (`k`), the reef's red rock (`r`) and the Harbor's road (`o`).
+pub const TERRAIN: [&str; 15] = [
+    "ggggggggggggggggggggggggg",
+    "ggggggggcccggggggggcccggg",
+    "gggccccsssscccccssssssccg",
+    "gccsssssssssssccssssswwcg",
+    "gcsssddssssssssssssswwwws",
+    "gcsssdddssssddsssssswwwss",
+    "gcssssssssssdddssssssssss",
+    "gcsssssssssssddsssskkssss",
+    "gcssssssddssssssssskkksss",
+    "gccsssssdddsssssssssssrrs",
+    "ggcsssssssssssssdddssrrrs",
+    "gccsskkkssssssssddsssrrrs",
+    "gcsskkkkkssssssoosssssrss",
+    "gcsssskkssssssoossssssssd",
+    "ggcsssssssssssoosssssssdd",
+];
+
+/// The terrain under a map position.
+#[must_use]
+pub fn terrain_at(x: f32, y: f32) -> char {
+    // Clamped into the map, so the cast is in range.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let (col, row) = (
+        (x / 16.0).clamp(0.0, 24.0) as usize,
+        (y / 16.0).clamp(0.0, 14.0) as usize,
+    );
+    TERRAIN[row].as_bytes()[col] as char
+}
+
 /// One entry on a trader's rug: kind, motive, weight.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Stock(pub Kind, pub Option<Motive>, pub u8);
@@ -357,6 +392,24 @@ mod tests {
                 let (bx, by) = b.pos();
                 assert!((ax - bx).hypot(ay - by) > 40.0, "{a:?} crowds {b:?}");
             }
+        }
+    }
+
+    #[test]
+    fn the_terrain_covers_the_map() {
+        for row in TERRAIN {
+            assert_eq!(row.len(), 25);
+            assert!(row.chars().all(|c| "gcsdwkro".contains(c)), "{row}");
+        }
+        assert!(TERRAIN.len() as f32 * 16.0 >= MAP_H);
+        // Nobody lives on a cliff face, except the keeper.
+        for site in Site::ALL {
+            let (x, y) = site.pos();
+            let ground = terrain_at(x, y);
+            assert!(
+                site == Site::Lighthouse || ground != 'c',
+                "{site:?} is on a cliff"
+            );
         }
     }
 

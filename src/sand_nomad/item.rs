@@ -186,9 +186,7 @@ impl Kind {
                 Material::Wood
             }
             Self::Rug | Self::Doll | Self::Rope | Self::Flag => Material::Cloth,
-            Self::Locket | Self::Dagger | Self::Pistol | Self::Coins | Self::Tin => {
-                Material::Metal
-            }
+            Self::Locket | Self::Dagger | Self::Pistol | Self::Coins | Self::Tin => Material::Metal,
             Self::Compass | Self::Spyglass | Self::MusicBox | Self::Clockbird => Material::Brass,
             Self::Water | Self::Kettle | Self::Lamp => Material::Ceramic,
             Self::Flute | Self::Comb | Self::Shell | Self::Rib | Self::Tooth | Self::Charm => {
@@ -330,7 +328,11 @@ impl Item {
             self.weight += 1;
             gained += 1;
         }
-        self.fondness = if self.weight >= ANIMA_WEIGHT { 0 } else { total };
+        self.fondness = if self.weight >= ANIMA_WEIGHT {
+            0
+        } else {
+            total
+        };
         gained
     }
 

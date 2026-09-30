@@ -15,6 +15,7 @@
 //! library, and the binary's `games::sand_nomad` is a thin macroquad
 //! shell.
 //!
+//! - [`art`] — the pixel art, as data.
 //! - [`motive`] — the six motives and their three opposing axes.
 //! - [`item`] — things, their weight, and what it does to them.
 //! - [`grid`] — the hold: packing, and how neighbours feed or quarrel.
@@ -24,6 +25,7 @@
 //! - [`journey`] — the rules, as a state machine the frontend drives.
 //! - [`sfx`] — what it all sounds like, synthesised.
 
+pub mod art;
 pub mod barter;
 pub mod grid;
 pub mod history;

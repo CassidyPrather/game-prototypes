@@ -16,17 +16,20 @@ pub mod sfx;
 pub enum GameId {
     /// A journey home whose rules are set by its music.
     Leitmotif,
+    /// A trading circuit of a dry ocean, where attachment weighs on you.
+    SandNomad,
 }
 
 impl GameId {
     /// Every prototype, in the order the menu lists them.
-    pub const ALL: [Self; 1] = [Self::Leitmotif];
+    pub const ALL: [Self; 2] = [Self::Leitmotif, Self::SandNomad];
 
     /// Display name, the one piece of text the menu shows.
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
             Self::Leitmotif => "Leitmotif",
+            Self::SandNomad => "Sand Nomad",
         }
     }
 }
