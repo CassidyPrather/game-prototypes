@@ -21,7 +21,7 @@ use game_prototypes::sand_nomad::barter::Emote;
 use game_prototypes::sand_nomad::item::{Item, ItemId};
 use game_prototypes::sand_nomad::journey::{Cue, Journey, Phase, Refusal};
 use game_prototypes::sand_nomad::sfx::{Sfx, Stuff};
-use game_prototypes::sand_nomad::world::Site;
+use game_prototypes::sand_nomad::world::{HOLD_SIZE, Site};
 use macroquad::input::{
     KeyCode, MouseButton, is_key_down, is_key_pressed, is_mouse_button_down,
     is_mouse_button_pressed, is_mouse_button_released, mouse_position,
@@ -440,7 +440,7 @@ impl Game {
         let id = carried.id;
         let result = match (carried.from, target) {
             (From::Hold, Some(Spot::Held(_) | Spot::Cell(..)) | None)
-                if layout::hold_rect(8, 4).contains(self.hand.pos) =>
+                if layout::hold_rect(HOLD_SIZE.0, HOLD_SIZE.1).contains(self.hand.pos) =>
             {
                 let corner =
                     self.hand.pos - carried.grab + vec2(layout::CELL / 2.0, layout::CELL / 2.0);
