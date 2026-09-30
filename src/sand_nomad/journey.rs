@@ -20,7 +20,7 @@
 //! clock or a random number.
 
 use crate::sand_nomad::barter::{self, Culture, Emote};
-use crate::sand_nomad::grid::{Grid, Growth, Placed};
+use crate::sand_nomad::grid::{Grid, Growth, Moved, Placed};
 use crate::sand_nomad::history::{self, Happening};
 use crate::sand_nomad::item::{Item, ItemId, JAR_SIPS, Kind};
 use crate::sand_nomad::motive::Motive;
@@ -138,6 +138,8 @@ pub enum Cue {
     Arrived(Site),
     /// Moved an item within the hold.
     Arranged(ItemId),
+    /// Two items in the hold traded places.
+    Swapped(ItemId, ItemId),
     /// Put an item on a pan.
     Panned(ItemId),
     /// Took an item back off a pan.
@@ -481,17 +483,23 @@ impl Journey {
         }
     }
 
-    /// Move an item within the hold.
+    /// Move an item within the hold, swapping it with the one thing in the
+    /// way if that thing fits where it was.
     pub fn arrange(&mut self, id: ItemId, x: i32, y: i32, turned: bool) -> Result<(), Refusal> {
         self.begin();
         if self.hold.get(id).is_none() {
             return self.no(Refusal::Missing);
         }
-        if self.hold.shift(id, x, y, turned) {
-            self.cues.push(Cue::Arranged(id));
-            Ok(())
-        } else {
-            self.no(Refusal::Blocked)
+        match self.hold.shift_or_swap(id, x, y, turned) {
+            Some(Moved::Shifted) => {
+                self.cues.push(Cue::Arranged(id));
+                Ok(())
+            }
+            Some(Moved::Swapped(other)) => {
+                self.cues.push(Cue::Swapped(id, other));
+                Ok(())
+            }
+            None => self.no(Refusal::Blocked),
         }
     }
 

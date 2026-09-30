@@ -74,6 +74,15 @@ pub struct Wander {
     pub to: (u8, u8),
 }
 
+/// How a thing moved in the hold.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Moved {
+    /// Into space that was free.
+    Shifted,
+    /// Into another thing's place, which took its old one.
+    Swapped(ItemId),
+}
+
 /// The ways a woken item tries to move, clockwise from up.
 const STEPS: [(i8, i8); 4] = [(0, -1), (1, 0), (0, 1), (-1, 0)];
 
@@ -270,6 +279,73 @@ impl Grid {
         true
     }
 
+    /// Move `id` to `(x, y)`, and if exactly one other thing is in the way
+    /// and fits where `id` was, swap them. `None` if neither works.
+    pub fn shift_or_swap(&mut self, id: ItemId, x: i32, y: i32, turned: bool) -> Option<Moved> {
+        if self.shift(id, x, y, turned) {
+            return Some(Moved::Shifted);
+        }
+        let me = self.get(id).copied()?;
+        if me.on_pan || x < 0 || y < 0 {
+            return None;
+        }
+        let (w, h) = me.item.footprint(turned);
+        // In range: checked non-negative above, and grids are small.
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let ghost = Placed {
+            item: me.item,
+            x: x as u8,
+            y: y as u8,
+            turned,
+            on_pan: false,
+        };
+        let (gw, gh) = (w, h);
+        let blockers: Vec<Placed> = self
+            .placed
+            .iter()
+            .filter(|p| p.item.id != id)
+            .filter(|p| {
+                let (pw, ph) = p.size();
+                !(ghost.x + gw <= p.x
+                    || p.x + pw <= ghost.x
+                    || ghost.y + gh <= p.y
+                    || p.y + ph <= ghost.y)
+            })
+            .copied()
+            .collect();
+        let [other] = blockers.as_slice() else {
+            return None;
+        };
+        if other.on_pan {
+            return None;
+        }
+        // Try it: take both out, put `id` in its new place, and see whether
+        // the other fits where `id` was.
+        let saved = self.placed.clone();
+        self.placed
+            .retain(|p| p.item.id != id && p.item.id != other.item.id);
+        let placed_me = self.fits(&me.item, x, y, turned, None);
+        if placed_me {
+            self.placed.push(ghost);
+            if self.fits(
+                &other.item,
+                i32::from(me.x),
+                i32::from(me.y),
+                other.turned,
+                None,
+            ) {
+                self.placed.push(Placed {
+                    x: me.x,
+                    y: me.y,
+                    ..*other
+                });
+                return Some(Moved::Swapped(other.item.id));
+            }
+        }
+        self.placed = saved;
+        None
+    }
+
     /// Take `id` out of the grid altogether.
     pub fn take(&mut self, id: ItemId) -> Option<Item> {
         let at = self.placed.iter().position(|p| p.item.id == id)?;
@@ -440,6 +516,45 @@ mod tests {
         );
         assert_eq!(grid.get(ItemId(1)).unwrap().x, 1);
         assert!(!grid.shift(ItemId(1), 1, 0, true), "too short to stand up");
+    }
+
+    #[test]
+    fn dropping_on_a_neighbour_swaps_when_both_fit() {
+        let mut grid = Grid::new(3, 1);
+        grid.place(item(1, Kind::Comb, None, 0), 0, 0, false)
+            .unwrap();
+        grid.place(item(2, Kind::Shell, None, 0), 2, 0, false)
+            .unwrap();
+        assert_eq!(
+            grid.shift_or_swap(ItemId(1), 2, 0, false),
+            Some(Moved::Swapped(ItemId(2)))
+        );
+        assert_eq!(
+            (
+                grid.get(ItemId(1)).unwrap().x,
+                grid.get(ItemId(2)).unwrap().x
+            ),
+            (2, 0)
+        );
+        // A rug landing on two things swaps with neither.
+        let mut grid = Grid::new(3, 2);
+        grid.place(item(1, Kind::Rug, None, 0), 0, 0, false)
+            .unwrap();
+        grid.place(item(2, Kind::Comb, None, 0), 2, 0, false)
+            .unwrap();
+        grid.place(item(3, Kind::Comb, None, 0), 0, 1, false)
+            .unwrap();
+        grid.place(item(4, Kind::Comb, None, 0), 1, 1, false)
+            .unwrap();
+        grid.place(item(5, Kind::Comb, None, 0), 2, 1, false)
+            .unwrap();
+        assert_eq!(
+            grid.shift_or_swap(ItemId(3), 2, 0, false),
+            Some(Moved::Swapped(ItemId(2)))
+        );
+        assert_eq!(grid.shift_or_swap(ItemId(1), 1, 1, false), None);
+        assert_eq!(grid.placed().len(), 5, "a failed swap loses nothing");
+        assert_eq!(grid.get(ItemId(1)).unwrap().x, 0);
     }
 
     #[test]

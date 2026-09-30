@@ -9,7 +9,7 @@ use std::f32::consts::{PI, TAU};
 
 use game_prototypes::sand_nomad::art;
 use game_prototypes::sand_nomad::barter;
-use game_prototypes::sand_nomad::grid::Placed;
+use game_prototypes::sand_nomad::grid::{Moved, Placed};
 use game_prototypes::sand_nomad::history;
 use game_prototypes::sand_nomad::item::{FONDNESS_PER_WEIGHT, Item, ItemId, Kind};
 use game_prototypes::sand_nomad::journey::{self, DAY_PX, PAR, Phase, WATCHES_PER_DAY};
@@ -40,12 +40,19 @@ pub fn scene(g: &Game) {
     }
     if g.fx.night > 0.0 {
         // Night falls and lifts in a moment at every dawn.
-        let a = (g.fx.night * PI).sin() * 0.45;
+        let a = (g.fx.night * PI).sin() * 0.22;
         rect(0.0, 0.0, paint::W, layout::HUD_Y, fade(ink('r'), a));
     }
     deck(g);
     for mote in &g.fx.motes {
-        let a = 1.0 - mote.age / mote.life;
+        if mote.delay > 0.0 {
+            continue;
+        }
+        let a = if mote.to.is_some() {
+            1.0
+        } else {
+            1.0 - mote.age / mote.life
+        };
         px(mote.pos.x, mote.pos.y, fade(ink(mote.ink), a));
     }
     if g.fx.refused > 0.0 {
@@ -134,7 +141,7 @@ fn map(g: &Game) {
     }
 
     ship(g);
-    if let Some(site) = hovered {
+    if let (Some(site), false) = (hovered, g.journey.phase() == Phase::Home) {
         place_card(g, site);
     }
 }
@@ -249,19 +256,7 @@ fn place_card(g: &Game, site: Site) {
         cx += 34.0;
     }
     for &kind in wants {
-        let s = art::item(kind);
-        // Big things shown by their first cell.
-        let tex = g.art.tex(s);
-        draw_texture_ex(
-            tex,
-            cx.floor(),
-            y + 13.0,
-            WHITE,
-            DrawTextureParams {
-                source: Some(Rect::new(0.0, 0.0, 16.0, 16.0)),
-                ..DrawTextureParams::default()
-            },
-        );
+        small_item(g, kind, vec2(cx, y + 13.0));
         // A little plus: they want this.
         rect(cx + 12.0, y + 9.0, 5.0, 1.0, ink('p'));
         rect(cx + 14.0, y + 7.0, 1.0, 5.0, ink('p'));
@@ -283,6 +278,25 @@ fn place_card(g: &Game, site: Site) {
             cx += 18.0;
         }
     }
+}
+
+/// An item squeezed into one cell's worth of space at `at`, for pictures
+/// of things rather than things: a trader's wants.
+fn small_item(g: &Game, kind: Kind, at: Vec2) {
+    let s = art::item(kind);
+    let (w, h) = (s.width() as f32, s.height() as f32);
+    let k = 16.0 / w.max(h);
+    let size = vec2(w * k, h * k);
+    draw_texture_ex(
+        g.art.tex(s),
+        at.x.floor() + ((16.0 - size.x) / 2.0).floor(),
+        at.y.floor() + ((16.0 - size.y) / 2.0).floor(),
+        WHITE,
+        DrawTextureParams {
+            dest_size: Some(size),
+            ..DrawTextureParams::default()
+        },
+    );
 }
 
 /// The era going on without you.
@@ -416,33 +430,7 @@ fn camp(g: &Game) {
     sprite(art, art::place(here), 250.0, horizon - 36.0);
     draw_texture_ex(&art.camp, 0.0, horizon, WHITE, DrawTextureParams::default());
 
-    // The waystone.
-    if let Some(m) = here.waystone() {
-        let r = layout::WAYSTONE;
-        let given = g.journey.place(here).given;
-        if g.fx.stone_glow > 0.0 || matches!(g.hand.hover, Some(Spot::Waystone)) {
-            let a = if g.fx.stone_glow > 0.0 {
-                g.fx.stone_glow / 2.0
-            } else {
-                0.4
-            };
-            for i in 0..10 {
-                let ang = (i as f32 / 10.0).mul_add(TAU, g.clock);
-                let c = r.center()
-                    + vec2(ang.cos(), ang.sin())
-                        * g.clock.mul_add(5.0, i as f32).sin().mul_add(2.0, 14.0);
-                px(c.x, c.y, fade(ink('F'), a));
-            }
-        }
-        sprite(art, art::WAYSTONE, r.x, r.y);
-        if given {
-            rect(r.x + 4.0, r.y + 7.0, 8.0, 8.0, ink('F'));
-        }
-        sprite(art, art::mark(m), r.x + 4.0, r.y + 7.0);
-        if !given && carrying_fits_stone(g) {
-            ring(r.center(), 12.0, 18.0, ink('F'), g.clock * 3.0);
-        }
-    }
+    waystone(g);
 
     // The well, pyre or bench.
     for (service, s) in services(here) {
@@ -478,6 +466,61 @@ fn camp(g: &Game) {
                 sprite(art, art::emote(emote), t.x + 22.0, t.y - 14.0 - rise);
             }
             None => wants_bubble(g, culture),
+        }
+    }
+}
+
+/// The waystone, its mark, and whether it wants what you are holding.
+fn waystone(g: &Game) {
+    let art = &g.art;
+    let here = g.journey.at();
+    let Some(m) = g.journey.at().waystone() else {
+        return;
+    };
+    {
+        let r = layout::WAYSTONE;
+        let given = g.journey.place(here).given;
+        if g.fx.stone_glow > 0.0 || matches!(g.hand.hover, Some(Spot::Waystone)) {
+            let a = if g.fx.stone_glow > 0.0 {
+                g.fx.stone_glow / 2.0
+            } else {
+                0.4
+            };
+            for i in 0..10 {
+                let ang = (i as f32 / 10.0).mul_add(TAU, g.clock);
+                let c = r.center()
+                    + vec2(ang.cos(), ang.sin())
+                        * g.clock.mul_add(5.0, i as f32).sin().mul_add(2.0, 14.0);
+                px(c.x, c.y, fade(ink('F'), a));
+            }
+        }
+        sprite(art, art::WAYSTONE, r.x, r.y);
+        if given {
+            rect(r.x + 4.0, r.y + 7.0, 8.0, 8.0, ink('F'));
+        }
+        sprite(art, art::mark(m), r.x + 4.0, r.y + 7.0);
+        if let Some((why, t)) = g.fx.no {
+            use game_prototypes::sand_nomad::journey::Refusal as R;
+            if matches!(why, R::WrongMotive | R::Weightless | R::Awake | R::Given) {
+                // The stone's mark flares: this is not what it wants.
+                outline(r.x + 3.0, r.y + 6.0, 10.0, 10.0, fade(ink('j'), t));
+                if why == R::Weightless {
+                    // It wants a thing that has been felt: an empty rune.
+                    let c = r.center() + vec2(0.0, -24.0);
+                    for (nx, ny) in paint::RUNE_NODES {
+                        rect(
+                            nx.mul_add(2.0, c.x - 5.0),
+                            ny.mul_add(2.0, c.y - 5.0),
+                            2.0,
+                            2.0,
+                            fade(ink('7'), t),
+                        );
+                    }
+                }
+            }
+        }
+        if !given && carrying_fits_stone(g) {
+            ring(r.center(), 12.0, 18.0, ink('F'), g.clock * 3.0);
         }
     }
 }
@@ -689,6 +732,10 @@ fn deck(g: &Game) {
     // Leave a weightless thing in the sand here.
     let p = layout::PIT;
     let open = matches!(g.hand.hover, Some(Spot::Pit)) && g.hand.carried.is_some();
+    if let Some((game_prototypes::sand_nomad::journey::Refusal::Heavy, t)) = g.fx.no {
+        // It will not be left: it has weight, and would follow.
+        disc(p.center().x, p.center().y + 3.0, 9.0, fade(ink('j'), t));
+    }
     // A hollow scooped in a heap of sand.
     let c = p.center() + vec2(0.0, 3.0);
     disc(c.x, c.y, 8.0, ink('0'));
@@ -698,7 +745,15 @@ fn deck(g: &Game) {
     if g.screen == Screen::Camp {
         let s = layout::SAIL;
         let hover = matches!(g.hand.hover, Some(Spot::Sail));
-        rect(s.x, s.y, s.w, s.h, ink(if hover { '5' } else { '2' }));
+        // Before the first voyage, the way out glows.
+        let beckon = g.journey.wake().len() == 1 && (g.clock * 3.0).sin() > 0.0;
+        rect(
+            s.x,
+            s.y,
+            s.w,
+            s.h,
+            ink(if hover || beckon { '5' } else { '2' }),
+        );
         outline(s.x, s.y, s.w, s.h, ink('0'));
         sprite(art, art::SAIL, s.x + 2.0, s.y + 4.0);
     }
@@ -713,6 +768,23 @@ fn hold(g: &Game) {
     let grid = g.journey.hold();
     let r = layout::hold_rect(grid.width(), grid.height());
     rect(r.x - 2.0, r.y - 2.0, r.w + 4.0, r.h + 4.0, ink('0'));
+    if let Some((game_prototypes::sand_nomad::journey::Refusal::NoRoom, t)) = g.fx.no {
+        // No room for what you would get.
+        outline(
+            r.x - 2.0,
+            r.y - 2.0,
+            r.w + 4.0,
+            r.h + 4.0,
+            fade(ink('j'), t),
+        );
+        outline(
+            r.x - 1.0,
+            r.y - 1.0,
+            r.w + 2.0,
+            r.h + 2.0,
+            fade(ink('j'), t),
+        );
+    }
     for y in 0..grid.height() {
         for x in 0..grid.width() {
             let o = cell_origin(true, x, y);
@@ -810,16 +882,19 @@ fn drop_preview(g: &Game) {
     let corner = g.hand.pos - c.grab + vec2(8.0, 8.0);
     let cell = ((corner - layout::HOLD) / layout::CELL).floor();
     #[allow(clippy::cast_possible_truncation)]
-    let fits = grid.fits(
-        &placed.item,
-        cell.x as i32,
-        cell.y as i32,
-        c.turned,
-        Some(c.id),
-    );
+    // Green if it fits, gold if it would swap with what is there, red if
+    // neither: tried on a copy of the hold.
+    #[allow(clippy::cast_possible_truncation)]
+    let outcome = grid
+        .clone()
+        .shift_or_swap(c.id, cell.x as i32, cell.y as i32, c.turned);
     let (w, h) = placed.item.footprint(c.turned);
     let o = layout::HOLD + cell * layout::CELL;
-    let colour = if fits { ink('q') } else { ink('j') };
+    let colour = match outcome {
+        Some(Moved::Shifted) => ink('q'),
+        Some(Moved::Swapped(_)) => ink('F'),
+        None => ink('j'),
+    };
     outline(o.x, o.y, f32::from(w) * 16.0, f32::from(h) * 16.0, colour);
     outline(
         o.x + 1.0,
@@ -838,6 +913,8 @@ fn item(g: &Game, placed: &Placed, o: Vec2) {
 /// A thing with its top left at `o`: sprite, painted mark, rune, water.
 fn item_at(g: &Game, it: Item, turned: bool, o: Vec2) {
     let id = it.id;
+    // Drawn where it is easing toward `o` from, if it is moving.
+    let o = g.fx.shown.get(&id).copied().unwrap_or(o);
     let hop =
         g.fx.hops
             .get(&id)
@@ -1151,22 +1228,33 @@ fn ending(g: &Game) {
         let earned = journey::marks(g.journey.burden());
         let c = vec2(200.0, 60.0);
         for i in 0..3 {
-            let x = (i as f32).mul_add(22.0, c.x - 30.0);
+            let x = (i as f32).mul_add(26.0, c.x - 34.0);
             let lit = i < earned;
             let pop = if lit {
                 (i as f32).mul_add(-0.3, t - 1.5).clamp(0.0, 0.3) / 0.3
             } else {
                 1.0
             };
-            let s = if lit { ['g', 'd', 'a'][i] } else { '1' };
-            rect(x, 18.0f32.mul_add(1.0 - pop, c.y), 16.0, 22.0, ink('0'));
-            rect(
-                x + 1.0,
-                18.0f32.mul_add(1.0 - pop, c.y + 1.0),
-                14.0,
-                20.0,
-                ink(s),
-            );
+            let rise = (18.0 * (1.0 - pop)).round();
+            if lit {
+                // The stone rises glowing: gold, then silver, then bronze.
+                let glow = ink(['g', 'd', '5'][i]);
+                for k in 0..12 {
+                    let a = (k as f32 / 12.0).mul_add(TAU, t);
+                    let p = vec2(x + 8.0, c.y + 14.0 + rise) + vec2(a.cos() * 12.0, a.sin() * 18.0);
+                    px(p.x, p.y, fade(glow, 0.6));
+                }
+                sprite_ex(&g.art, art::WAYSTONE, x, c.y - 4.0 + rise, glow, false);
+            } else {
+                sprite_ex(
+                    &g.art,
+                    art::WAYSTONE,
+                    x,
+                    c.y - 4.0,
+                    fade(ink('m'), 0.6),
+                    false,
+                );
+            }
         }
         // Start again.
         let k = vec2(200.0, 110.0);

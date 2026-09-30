@@ -185,6 +185,11 @@ struct Mote {
     age: f32,
     life: f32,
     ink: char,
+    /// Where a grain of burden is flying: it arcs from where it started to
+    /// here instead of falling.
+    to: Option<(Vec2, Vec2)>,
+    /// Seconds before it sets off.
+    delay: f32,
 }
 
 /// Motion the cues set going.
@@ -215,6 +220,13 @@ struct Fx {
     refused: f32,
     /// A waystone hint: things in the hold that would do, lit.
     hint: f32,
+    /// What the scale read last, to creak when it changes.
+    reading_was: Option<i32>,
+    /// The last refusal, and how long its hint has left.
+    no: Option<(Refusal, f32)>,
+    /// Where each thing is drawn, easing toward where it is, so that
+    /// nothing teleports: drops settle, pans fill, deals fly.
+    shown: HashMap<ItemId, Vec2>,
 }
 
 /// Which view the top of the screen shows.
@@ -276,8 +288,11 @@ impl crate::games::Game for Game {
         }
         self.pointer(dt);
         if self.journey.phase() == Phase::Sailing {
-            // Held down, the wind picks up.
-            let hurry = if is_key_down(KeyCode::Space) || is_mouse_button_down(MouseButton::Left) {
+            // Held down, over the map, the wind picks up.
+            let over_map = self.hand.pos.y < layout::HUD_Y && self.hand.carried.is_none();
+            let hurry = if is_key_down(KeyCode::Space)
+                || (over_map && is_mouse_button_down(MouseButton::Left))
+            {
                 3.0
             } else {
                 1.0
@@ -449,8 +464,14 @@ impl Game {
             (From::MyPan, Some(Spot::Pan(true) | Spot::Panned(_, true)))
             | (From::TheirPan, Some(Spot::Pan(false) | Spot::Panned(_, false))) => Ok(()),
             (From::MyPan | From::TheirPan, _) => self.journey.withdraw(id),
+            (From::Rug, None | Some(Spot::Rug | Spot::Rugged(_))) | (From::Hold, None) => {
+                // Put back where it was, no harm done.
+                self.set_sound(id);
+                self.hop(id);
+                return;
+            }
             _ => {
-                // Back where it was.
+                // Somewhere it cannot go.
                 self.shake(id);
                 self.audio.play(Sfx::Nope);
                 return;
@@ -465,7 +486,7 @@ impl Game {
     fn click(&mut self, spot: Spot) {
         let reading = self.hand.loupe;
         match spot {
-            Spot::Held(id) | Spot::Rugged(id) if reading => {
+            Spot::Held(id) | Spot::Rugged(id) | Spot::Panned(id, _) if reading => {
                 let _ = self.journey.appraise(id);
                 self.react();
             }
@@ -716,6 +737,13 @@ impl Game {
                     self.set_sound(id);
                     self.dust_at_item(id);
                 }
+                Cue::Swapped(a, b) => {
+                    self.hop(a);
+                    self.hop(b);
+                    self.set_sound(a);
+                    self.audio.later(0.07, Sfx::Turn);
+                    self.dust_at_item(a);
+                }
                 Cue::Panned(_) => self.audio.play(Sfx::Pan),
                 Cue::Unpanned(id) => self.set_sound(id),
                 Cue::Face(emote) => {
@@ -763,6 +791,7 @@ impl Game {
                     self.dust(layout::PIT.center(), 10, '8');
                 }
                 Cue::No(why) => {
+                    self.fx.no = Some((why, 0.9));
                     let sound = match why {
                         Refusal::WrongMotive
                         | Refusal::Weightless
@@ -818,6 +847,8 @@ impl Game {
                 age: 0.0,
                 life: ((i % 3) as f32).mul_add(0.15, 0.4),
                 ink,
+                to: None,
+                delay: 0.0,
             });
         }
     }
@@ -831,23 +862,93 @@ impl Game {
         }
     }
 
-    /// Grains of burden trickling into the jar: one per few points of load.
+    /// Grains of burden: every watch, each thing with weight sheds a grain
+    /// a point, and they arc from where it sits in the hold into the jar.
+    /// You can see what is weighing on you.
     fn pour_grains(&mut self, watches: u32) {
-        let load = self.journey.load();
-        let count = (load.min(24) as usize / 2 + 1) * (watches.min(4) as usize);
-        let top = vec2(layout::JAR.x + layout::JAR.w / 2.0, layout::JAR.y - 2.0);
-        for i in 0..count.min(40) {
+        let mouth = vec2(layout::JAR.x + layout::JAR.w / 2.0, layout::JAR.y + 2.0);
+        let mut sources = Vec::new();
+        for p in self.journey.hold().placed() {
+            let burden = p.item.burden();
+            if burden == 0 {
+                continue;
+            }
+            let (w, h) = p.size();
+            let o =
+                draw::cell_origin(true, p.x, p.y) + vec2(f32::from(w) * 8.0, f32::from(h) * 8.0);
+            // A handful of grains, not one per point, or a heavy hold
+            // would snow.
+            for k in 0..burden.min(6) {
+                sources.push((o, k, p.item.is_anima()));
+            }
+        }
+        let spread = watches.clamp(1, 4) as f32 * 0.25;
+        let count = sources.len().max(1) as f32;
+        for (n, (from, k, alive)) in sources.into_iter().enumerate() {
             self.fx.motes.push(Mote {
-                pos: top + vec2(((i * 7) % 5) as f32 - 2.0, -(((i * 3) % 11) as f32)),
-                vel: vec2(0.0, ((i % 4) as f32).mul_add(8.0, 30.0)),
+                pos: from,
+                vel: Vec2::ZERO,
                 age: 0.0,
-                life: 0.8,
-                ink: '2',
+                life: 0.7,
+                ink: if alive {
+                    'E'
+                } else if k % 2 == 0 {
+                    '3'
+                } else {
+                    '9'
+                },
+                to: Some((from + vec2((k as f32 - 2.0) * 1.5, 0.0), mouth)),
+                delay: n as f32 / count * spread,
             });
         }
     }
 
+    /// Where every visible thing belongs right now, top left.
+    fn item_targets(&self) -> Vec<(ItemId, Vec2)> {
+        let mut out: Vec<(ItemId, Vec2)> = self
+            .journey
+            .hold()
+            .present()
+            .map(|p| (p.item.id, draw::cell_origin(true, p.x, p.y)))
+            .collect();
+        if self.screen == Screen::Camp && self.journey.trader().is_some() {
+            out.extend(
+                self.journey
+                    .rug()
+                    .present()
+                    .map(|p| (p.item.id, draw::cell_origin(false, p.x, p.y))),
+            );
+            for mine in [true, false] {
+                out.extend(
+                    self.pan_layout(mine)
+                        .into_iter()
+                        .map(|(id, r)| (id, r.point())),
+                );
+            }
+        }
+        out
+    }
+
     fn animate(&mut self, dt: f32) {
+        let ease = 1.0 - (-24.0 * dt).exp();
+        let targets = self.item_targets();
+        let mut shown = HashMap::with_capacity(targets.len());
+        for (id, target) in targets {
+            let at = self.fx.shown.get(&id).map_or(target, |&was| {
+                let next = was.lerp(target, ease);
+                if next.distance(target) < 0.5 {
+                    target
+                } else {
+                    next
+                }
+            });
+            shown.insert(id, at);
+        }
+        if let Some(c) = self.hand.carried {
+            shown.insert(c.id, self.hand.pos - c.grab);
+        }
+        self.fx.shown = shown;
+
         // The beam swings toward what the scale says, and overshoots a bit.
         let target = match (self.screen, self.journey.balance()) {
             (Screen::Camp, Some(b)) => (b as f32).clamp(-8.0, 8.0) * 0.035,
@@ -856,15 +957,22 @@ impl Game {
             }
             _ => 0.0,
         };
-        let before = self.fx.beam;
         self.fx.beam_vel = ((target - self.fx.beam) * 60.0).mul_add(dt, self.fx.beam_vel);
         self.fx.beam_vel *= (-5.0 * dt).exp();
         self.fx.beam = self.fx.beam_vel.mul_add(dt, self.fx.beam);
-        if (self.fx.beam - before).abs() > 0.004
-            && self.fx.beam_vel.abs() > 0.3
-            && self.fx.beam_vel.abs() < 0.32
-        {
-            self.audio.play(Sfx::Beam);
+        // The beam creaks whenever the reading changes.
+        let reading = self.journey.balance().map(|b| b.clamp(-8, 8));
+        if self.screen == Screen::Camp && reading != self.fx.reading_was {
+            if self.fx.reading_was.is_some() || reading.is_some() {
+                self.audio.later(0.08, Sfx::Beam);
+            }
+            self.fx.reading_was = reading;
+        }
+        if let Some((_, t)) = self.fx.no.as_mut() {
+            *t -= dt;
+        }
+        if self.fx.no.is_some_and(|(_, t)| t <= 0.0) {
+            self.fx.no = None;
         }
         for map in [&mut self.fx.hops, &mut self.fx.flashes, &mut self.fx.shakes] {
             map.retain(|_, t| {
@@ -890,8 +998,8 @@ impl Game {
             mote.vel.y = 60.0f32.mul_add(dt, mote.vel.y);
         }
         self.fx.motes.retain(|m| m.age < m.life);
+        self.fx.night = 2.5f32.mul_add(-dt, self.fx.night).max(0.0);
         for t in [
-            &mut self.fx.night,
             &mut self.fx.stone_glow,
             &mut self.fx.flare,
             &mut self.fx.refused,
