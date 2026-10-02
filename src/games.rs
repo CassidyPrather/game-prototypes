@@ -5,6 +5,7 @@
 //! gets wired in.
 
 pub mod leitmotif;
+pub mod sand_nomad;
 
 use game_prototypes::shell::GameId;
 
@@ -31,6 +32,7 @@ pub trait Game {
 pub async fn load(id: GameId) -> Box<dyn Game> {
     match id {
         GameId::Leitmotif => Box::new(leitmotif::Game::load().await),
+        GameId::SandNomad => Box::new(sand_nomad::Game::load().await),
     }
 }
 
@@ -40,5 +42,6 @@ pub async fn load(id: GameId) -> Box<dyn Game> {
 pub fn emblem(id: GameId, frame: &Frame, centre: MqVec2, width: f32, clock: f32) {
     match id {
         GameId::Leitmotif => leitmotif::emblem(frame, centre, width, clock),
+        GameId::SandNomad => sand_nomad::emblem(frame, centre, width, clock),
     }
 }

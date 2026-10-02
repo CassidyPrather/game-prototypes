@@ -826,7 +826,7 @@ fn draw_transport(sim: &Sim, view: &View, palette: &Palette) {
     // Sections: a block each in its motif's colour, the live one filling
     // left to right as it plays out.
     let gap = 4.0;
-    let block_w = (STRIP_W - gap * (SONG.len() as f32 - 1.0)) / SONG.len() as f32;
+    let block_w = f32::mul_add(gap, -(SONG.len() as f32 - 1.0), STRIP_W) / SONG.len() as f32;
     for (i, section) in SONG.iter().enumerate() {
         let x = (i as f32).mul_add(block_w + gap, MARGIN);
         let live = i == music.section;
@@ -849,7 +849,7 @@ fn draw_transport(sim: &Sim, view: &View, palette: &Palette) {
         motif_glyph(
             view,
             section.motif,
-            view.hud(Vec2::new(x + block_w * 0.5, strip_y - 28.0)),
+            view.hud(Vec2::new(block_w.mul_add(0.5, x), strip_y - 28.0)),
             16.0,
             with_alpha(colour, if live { 0.9 } else { 0.4 }),
         );

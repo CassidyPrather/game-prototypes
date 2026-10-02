@@ -39,6 +39,10 @@ prototype's own business; Leitmotif does it with `R`.
 - **[Leitmotif](docs/LEITMOTIF.md)** — a journey home whose rules are set by
   its music. Which motif is playing decides how the world behaves, and every
   voice in the band drives something that can hurt you.
+- **[Sand Nomad](docs/SAND_NOMAD.md)** — a trading circuit of a dry ocean,
+  where everything you grow attached to gathers weight and weighs on you.
+  Visit every waystone and come home carrying as little as you can; barter
+  on a scale with traders who never mention how heavy their goods are.
 
 ## How it is built
 
@@ -46,6 +50,7 @@ prototype's own business; Leitmotif does it with `R`.
   - `src/shell.rs` — the menu's own state, which prototype it points at.
     - `src/shell/sfx.rs` — the menu's sounds, synthesised and tested.
   - `src/leitmotif/` — one prototype's simulation, score, synthesis and mix.
+  - `src/sand_nomad/` — another's rules, world, pixel art and sound.
 - `src/main.rs` — the shell's loop: the menu, or whichever prototype is
   running.
   - `src/ui.rs` — the letterboxed 800x600 frame and the drawing primitives
@@ -55,6 +60,8 @@ prototype's own business; Leitmotif does it with `R`.
   - `src/games.rs` — the `Game` trait, and the two matches that wire a
     prototype in: how to load it, and how to draw its emblem.
   - `src/games/leitmotif.rs` — that prototype's macroquad frontend.
+  - `src/games/sand_nomad.rs` — and Sand Nomad's, which paints pixel art
+    into a low-resolution canvas and lays it over the frame.
 
 Adding a prototype is a `GameId` variant, a module under each half, and an
 arm in `games::load` and `games::emblem`. The library tests check the menu
@@ -80,7 +87,7 @@ Format: `cargo fmt`
 Test: `cargo test`
 
 Audio headroom report: `cargo test --lib mix:: -- --nocapture` (and
-`sfx::` for the menu's sounds)
+`sfx::` for the menu's and Sand Nomad's sounds)
 
 Web build: `./scripts/build-web.sh` (needs
 `rustup target add wasm32-unknown-unknown`; uses `wasm-opt` from

@@ -795,14 +795,14 @@ impl Screen {
         let title = frame.label_width(font, id.name(), text * scale) / scale + 22.0;
         chip(
             frame,
-            at(MqVec2::new(left + title * 0.5, y)),
+            at(MqVec2::new(title.mul_add(0.5, left), y)),
             MqVec2::new(title, CHIP_H) * scale,
             scale,
         );
         frame.label(
             font,
             id.name(),
-            at(MqVec2::new(left + title * 0.5, y + 1.0)),
+            at(MqVec2::new(title.mul_add(0.5, left), y + 1.0)),
             text * scale,
             brand::INK,
         );
@@ -813,7 +813,7 @@ impl Screen {
         let width = 58.0;
         chip(
             frame,
-            at(MqVec2::new(right - width * 0.5, y)),
+            at(MqVec2::new(f32::mul_add(width, -0.5, right), y)),
             MqVec2::new(width, CHIP_H) * scale,
             scale,
         );
@@ -868,7 +868,7 @@ impl Screen {
             let twinkle = n.mul_add(1.7, self.clock * 2.4).sin().mul_add(0.5, 0.5);
             frame.circle(
                 at(SCREEN_CENTRE + spot),
-                (1.0 + twinkle * 0.6) * scale,
+                f32::mul_add(twinkle, 0.6, 1.0) * scale,
                 with_alpha(brand::ICE, twinkle.mul_add(0.5, 0.15)),
             );
         }
@@ -959,7 +959,7 @@ impl Screen {
         let appear = ease_out_cubic(unit((self.shown - 0.4) / 0.4));
         let width = frame.label_width(font, VERSION, size) + 16.0;
         let at = MqVec2::new(
-            (1.0 - appear).mul_add(-width, 14.0 + width * 0.5),
+            (1.0 - appear).mul_add(-width, width.mul_add(0.5, 14.0)),
             ui::FRAME_H - 20.0,
         );
         chip(frame, frame.at(at), MqVec2::new(width, 20.0), 1.0);

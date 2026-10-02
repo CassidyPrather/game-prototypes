@@ -1708,7 +1708,7 @@ mod tests {
         sim.place_player(Vec2::new(wall_x(1), GAP_Y));
         sim.player.invuln = 0.0;
         sim.drum_hit(song::SNARE);
-        assert!(sim.cues().is_empty());
+        assert_eq!(sim.cues(), &[] as &[Cue]);
     }
 
     #[test]
@@ -2171,7 +2171,7 @@ mod tests {
                 ..InputFrame::default()
             },
         );
-        assert!(!sim.cues().is_empty());
+        assert_ne!(sim.cues(), &[] as &[Cue]);
         sim.advance(TICK_DT, &InputFrame::default());
         assert!(sim.cues().is_empty(), "stale cues: {:?}", sim.cues());
     }

@@ -10,8 +10,11 @@
 //! - [`shell`] is the menu's own state: which prototype it is pointing at.
 //! - [`leitmotif`] is the first prototype, a game whose rules are set by its
 //!   music.
+//! - [`sand_nomad`] is a trading circuit of a dry ocean, where everything
+//!   you grow attached to weighs on you.
 
 pub mod leitmotif;
+pub mod sand_nomad;
 pub mod shell;
 
 /// `git describe` version, embedded by `build.rs`.

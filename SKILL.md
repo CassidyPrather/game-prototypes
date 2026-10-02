@@ -10,10 +10,15 @@ compiled to wasm, shipped as a static page. Native desktop builds also work.
 Crate `game-prototypes`, lib `game_prototypes`, bin `game-prototypes`.
 Built on Cassidy's game-template. Code is AGPL-3.0-or-later.
 
-The one prototype so far is **Leitmotif**: a journey home whose rules are
+There are two prototypes. **Leitmotif**: a journey home whose rules are
 set by its music — the current motif decides how the world behaves, each
 voice in the band drives a hazard, and holding the music holds everything it
-drives. There is no text in it, only icons and key caps.
+drives. **Sand Nomad**: a hand-made trading circuit of a dry ocean where
+things gather *weight* as you grow attached to them; visit every waystone
+and come home having carried as little as you can (a travelling salesman's
+problem with a hold full of feelings), bartering on a scale with traders
+who never mention the weight of what they hand over. Neither has any text,
+only icons and key caps.
 
 ## Repo Map
 
@@ -39,6 +44,8 @@ not. Both are split the same way, project first and prototype second.
   pressed something (see the autoplay rule below).
 - `src/games.rs` — the `Game` trait (`update`, `draw`) and the two matches
   that wire a prototype in: `load` and `emblem`.
+- `src/ui.rs` also has `Frame::image`, for a prototype that paints into its
+  own low-resolution texture and hands it to the frame whole.
 
 ### Leitmotif
 
@@ -73,6 +80,36 @@ not. Both are split the same way, project first and prototype second.
 - `benches/` — criterion bench over the sim and the sequencer. Unit tests
   live beside the code in `src/`.
 
+### Sand Nomad
+
+Design, rules and knobs: `docs/SAND_NOMAD.md`.
+
+- `src/sand_nomad/journey.rs` — the rules as a deterministic state machine.
+  Commands (`arrange`, `offer`, `ask`, `deal`, `appraise`, `give`, `burn`,
+  `renew`, `fill`, `set_sail`) and `advance` while sailing; `Cue`s out, one
+  command's worth at a time. Time passes only in watches: sailing, and the
+  few actions that cost it. Its `tests.rs` has a bot that walks the circuit;
+  it is the balance check — keep it walking the whole circuit, beating the
+  careless route, and landing on two marks of three.
+- `src/sand_nomad/grid.rs` — the hold: packing, neighbours, the daily
+  fondness rule (like feeds like, opposites quarrel), waking things wandering.
+- `src/sand_nomad/barter.rs` — each culture's `Taste`; the scale; faces.
+  Traders never count the weight of what *they* give (`give`), only of what
+  they receive (`receive`). That asymmetry is what makes appraisal worth its
+  watch; keep it.
+- `src/sand_nomad/world.rs` — the hand-made basin: terrain rows, places,
+  waystones, every rug. Nothing is rolled at runtime.
+- `src/sand_nomad/history.rs` — the era's events, pure functions of the day.
+- `src/sand_nomad/art.rs` — all pixel art as palette-character rows, 16 px
+  grid; tested for shape and palette. `src/sand_nomad/sfx.rs` — every sound,
+  synthesised, headroom-tested. No music, by request.
+- `src/games/sand_nomad.rs` — pointer handling (click, drag, drop, turn) and
+  cue reactions; `layout` holds every rectangle drawing and hit-testing
+  share. `paint.rs` is a 400x300 render target (sample count 0: WebGL 1 has
+  no multisample resolve) laid over the frame with `Frame::image`; textures
+  are keyed by a hash of the sprite's rows, not its address, because a
+  `const` may be copied wherever it is used. `draw.rs` draws everything.
+
 ## Commands
 
 ```bash
@@ -83,6 +120,8 @@ cargo clippy --target wasm32-unknown-unknown -- -D warnings   # lint, wasm
 cargo fmt                                                     # format
 cargo test                                                    # test
 cargo test --lib mix:: -- --nocapture                         # audio headroom report
+cargo test --lib sand_nomad::journey -- --nocapture           # the bot's circuit, burden, deals
+BOT_TRACE=1 cargo test --lib a_bot_can -- --nocapture         # ...and its hold at every stop
 ./scripts/build-web.sh                                        # wasm -> dist/web/
 python3 -m http.server --directory dist/web 8080              # serve it
 cargo bench --bench sim_bench -- --quick                      # bench
@@ -156,7 +195,8 @@ control, so every pitch an instrument plays is its own baked buffer;
 and it bakes automatically; the tests check that nothing plays unbaked.
 
 No text on screen. If the HUD needs to say something, say it with a shape
-the world already uses, a colour, or a key cap with one character on it. The
+the world already uses, a colour, or a key cap with one character on it.
+Sand Nomad keeps to this with runes, emotes, tally marks and a burden jar. The
 menu bends this once, for the names on its cards, because a shelf of unnamed
 pictures stops being a menu; everything else there is drawn.
 
