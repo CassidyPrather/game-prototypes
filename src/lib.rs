@@ -12,10 +12,13 @@
 //!   music.
 //! - [`sand_nomad`] is a trading circuit of a dry ocean, where everything
 //!   you grow attached to weighs on you.
+//! - [`space_trucking`] is an ambient game of hauling cargo across the solar
+//!   system, built to be played in the background.
 
 pub mod leitmotif;
 pub mod sand_nomad;
 pub mod shell;
+pub mod space_trucking;
 
 /// `git describe` version, embedded by `build.rs`.
 pub const VERSION: &str = env!("GIT_DESCRIBE_VERSION");

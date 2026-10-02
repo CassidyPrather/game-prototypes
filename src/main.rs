@@ -8,6 +8,10 @@
 //! back is a pause rather than another wait on a sound bank. Starting a
 //! fresh run is the prototype's own business; Leitmotif does it with `R`.
 //!
+//! One command-line mode skips the menu: `--replay <file>` plays a Space
+//! Trucking flight-recorder tape back (see `docs/SPACE_TRUCKING.md`). The
+//! web has no arguments, so it never triggers there.
+//!
 //! Going in and out is one continuous motion: the menu closes an iris of
 //! night on the chosen window, the prototype loads behind it, and the iris
 //! opens again on the prototype; leaving plays it in reverse.
@@ -54,6 +58,16 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    // Scoped so the non-Send `Args` iterator never lives across an await.
+    let (replay_mode, replay_path) = {
+        let mut args = std::env::args();
+        (args.nth(1).as_deref() == Some("--replay"), args.next())
+    };
+    if replay_mode {
+        games::space_trucking::replay_session(replay_path).await;
+        return;
+    }
+
     let font = load_ttf_font_from_bytes(FONT).expect("the vendored font parses");
     let mut screen = menu::Screen::new(font);
     let mut sounds = Sounds::load().await;
@@ -75,6 +89,9 @@ async fn main() {
         if playing && is_key_pressed(KeyCode::Escape) {
             playing = false;
             revealing = None;
+            if let Some((_, game)) = running.as_mut() {
+                game.leave();
+            }
             screen.show_after_game();
             sounds.play(Sfx::Back);
         }

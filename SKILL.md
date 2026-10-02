@@ -10,15 +10,18 @@ compiled to wasm, shipped as a static page. Native desktop builds also work.
 Crate `game-prototypes`, lib `game_prototypes`, bin `game-prototypes`.
 Built on Cassidy's game-template. Code is AGPL-3.0-or-later.
 
-There are two prototypes. **Leitmotif**: a journey home whose rules are
+There are three prototypes. **Leitmotif**: a journey home whose rules are
 set by its music — the current motif decides how the world behaves, each
 voice in the band drives a hazard, and holding the music holds everything it
 drives. **Sand Nomad**: a hand-made trading circuit of a dry ocean where
 things gather *weight* as you grow attached to them; visit every waystone
 and come home having carried as little as you can (a travelling salesman's
 problem with a hold full of feelings), bartering on a scale with traders
-who never mention the weight of what they hand over. Neither has any text,
-only icons and key caps.
+who never mention the weight of what they hand over. **Space Trucking**: an
+ambient, background-playable game of hauling cargo across the solar system and
+bartering it cargo-for-cargo; it keeps its own save and the ship flies on in
+real time while you are away. None has any text, only icons and key caps (the
+menu names its cards, and Space Trucking prints a version string in a corner).
 
 ## Repo Map
 
@@ -42,8 +45,9 @@ not. Both are split the same way, project first and prototype second.
   timers eased toward what `shell::Menu` says.
 - `src/sounds.rs` — bakes `shell::sfx` and plays it once the player has
   pressed something (see the autoplay rule below).
-- `src/games.rs` — the `Game` trait (`update`, `draw`) and the two matches
-  that wire a prototype in: `load` and `emblem`.
+- `src/games.rs` — the `Game` trait (`update`, `draw`, and `leave`, called
+  when the player escapes to the menu, for a prototype that has loops to
+  silence) and the two matches that wire a prototype in: `load` and `emblem`.
 - `src/ui.rs` also has `Frame::image`, for a prototype that paints into its
   own low-resolution texture and hands it to the frame whole.
 
@@ -110,6 +114,62 @@ Design, rules and knobs: `docs/SAND_NOMAD.md`.
   are keyed by a hash of the sprite's rows, not its address, because a
   `const` may be copied wherever it is used. `draw.rs` draws everything.
 
+### Space Trucking
+
+Rules, privacy, multiplayer and the flight recorder: `docs/SPACE_TRUCKING.md`.
+Design intent, lore and the stay-on-target checklist (`DESIGN_REVIEW.md`,
+which runs at the end of every work stage there): `docs/space-trucking/`.
+It arrived from its own repository whole, and keeps the conventions it grew
+there, so this section is the map of where each landed.
+
+- `src/space_trucking/sim.rs` and `src/space_trucking/sim/` — the simulation.
+  Pure, deterministic, no macroquad. Most work belongs here.
+  - `sim.rs` — `Sim`, `InputFrame`, `Cue`, `advance`, `fast_forward`.
+  - `layout.rs` — shared console geometry, used for both hit-tests and
+    rendering so they cannot disagree.
+  - `map.rs` — points of interest, their orbits, and intercept travel.
+    Positions are pure functions of the tick; nothing is stored.
+  - `cargo.rs` — cargo kinds, pieces, and placement rules.
+  - `barter.rs` — valuation and trade resolution.
+  - `event.rs` / `rats.rs` / `encounter.rs` — the events, as siblings
+    with a uniform hook shape (on_depart/on_dock/travel_tick/on_press +
+    own save lines and cues); a new event should copy the shape, not
+    invent a framework. `encounter.rs` holds both the travel encounters
+    (derelict/gas station/casino/meteors/whale) and the ad drone.
+  - `save.rs` — `STV4` serialization.
+- `src/space_trucking/net.rs` and `net/` — deterministic lockstep
+  multiplayer per `docs/space-trucking/NETWORKING.md`: protocol messages,
+  helm/client session state machines, the guild server (idempotent
+  max-merge delivery counters), and the seeded flaky-network harness the
+  tests run on. Pure and macroquad-free like `sim`; transports are a later
+  adapter. `examples/space_trucking_convoy.rs` runs six clients in one
+  command.
+- `src/space_trucking/replay.rs` — the flight recorder's tape format.
+  `telemetry.rs` — the opt-in play-statistics aggregator
+  (`docs/space-trucking/TELEMETRY.md`). `synth.rs` — procedural sound
+  effects as WAV bytes, unit-tested; it ships no audio assets.
+- `src/games/space_trucking.rs` — the macroquad loop: gathers an
+  `InputFrame`, advances the sim, owns the save slot, the black box, the
+  telemetry buffer and the one piece of text (the version string). Also
+  `replay_session`, which `main.rs` runs for `--replay <file>`.
+  `View` is the sim's world on the shell's `Frame`; the world is the same
+  800x600 box, and a test says so.
+  - `render.rs` (the console, into a crunched low-res target), `audio.rs`
+    (cues to playback, plus the four ambient loops), `juice.rs`
+    (cosmetic motion), `tutor.rs` (the idle onboarding ghost),
+    `palette.rs` (every colour, by role), `storage.rs` (quad-storage),
+    `emblem.rs` (the menu's mark).
+- Leaving for the menu stops updates, not time: `stall_catch_up` replays the
+  wall-clock gap on return, and `Game::leave` silences the loops and saves.
+- `web/sapp_jsutils.js`, `web/quad-storage.js` — vendored plugins for the
+  save slot (load order is load-bearing; `index.html` documents it). Its
+  page also owns the reduced-motion and deep-night mirrors, the
+  `#pretty-please` developer ceremony, and the telemetry consent card, which
+  waits for the game to raise `space-trucking/consent-wanted` (the menu is
+  not play) before it asks.
+- `tests/space_trucking_perf.rs` — CI-enforced release-mode ceilings
+  (`docs/space-trucking/BUDGETS.md`); `benches/space_trucking_bench.rs`.
+
 ## Commands
 
 ```bash
@@ -125,6 +185,10 @@ BOT_TRACE=1 cargo test --lib a_bot_can -- --nocapture         # ...and its hold 
 ./scripts/build-web.sh                                        # wasm -> dist/web/
 python3 -m http.server --directory dist/web 8080              # serve it
 cargo bench --bench sim_bench -- --quick                      # bench
+cargo bench --bench space_trucking_bench -- --quick           # ...and Space Trucking's
+cargo test --release --test space_trucking_perf -- --ignored  # Space Trucking's perf budgets
+cargo run --example space_trucking_convoy                      # six-client lockstep convoy
+cargo run -- --replay <tape>                                  # play a Space Trucking black box
 cargo audit                                                   # audit
 ```
 
@@ -147,6 +211,14 @@ refills under the pad. Skipping a section lands on the next bar.
 Do not read wall-clock time, macroquad state, or randomness from inside
 `src/sim.rs` or `src/song.rs`. If the frontend needs to tell the sim
 something, it goes in `InputFrame`.
+
+Space Trucking keeps the same contract with its own `InputFrame`: pointer
+edges plus the toggles, splitmix RNG streams derived from the seed, and
+`Cue`s that say what happened and how hard in `0..=1`, never what it should
+sound like. `fast_forward` (warp and offline catch-up) suppresses cues. Do
+not read wall-clock time, macroquad state or randomness from inside
+`src/space_trucking/`; the frontend's `fresh_seed` and the `night` bit are
+how the outside world gets in.
 
 The sim has two output channels, and sound uses the second one exactly the way
 rendering uses the first: the getters (`player`, `stompers`, `walls`,
@@ -212,5 +284,37 @@ Two independent decoders read `synth`'s bytes — `audrey` natively and the
 browser's `decodeAudioData` on the web — and the web one reports failure by
 never calling back, which hangs macroquad's loader on a black screen. That is
 why `synth.rs` has header tests.
+
+Space Trucking brought house rules of its own, which stand:
+
+- Cargo is conserved: a piece the player owns never vanishes or changes
+  hands except through four ceremonies — the accept lever, the Guild's hangar
+  steal on docking (`Cue::Delivered`), ???'s three-for-one exchange
+  (`Cue::Exchange`), and the outboard net's sweep (`Cue::Jettison`). The
+  casino only ever transmutes a wagered piece, never destroys it. No drag can
+  destroy anything. The ownership rule lives in exactly one place
+  (`cargo::player_owned`), the drop matrix consumes it in `Sim::resolve_drop`,
+  and the renderer's affordances come from `Sim::drop_targets()` — never
+  restate any of them. The drag-monkey tests in `src/space_trucking/sim.rs`
+  feed thousands of arbitrary input frames (solo and six-player) and fail the
+  moment any interaction loses a piece outside those doors.
+- Aesthetics are directed: `docs/space-trucking/ART_DIRECTION.md` holds the
+  conceit (a worn instrument panel; screens vs metal), and all of its colour
+  lives in `src/games/space_trucking/palette.rs` — a purity test fails the
+  build on any raw colour constructor in its other frontend files. Follow the
+  file or amend it in the same change.
+- Its save string is versioned (magic `STV4`), hand-rolled in
+  `src/space_trucking/sim/save.rs`, with no compatibility guarantees before
+  1.0. Bump the magic on any breaking change; an old or corrupt save fails
+  safe into a fresh game, never a panic.
+- Telemetry is opt-in and local, and the consent card's wording in
+  `web/index.html` must stay aligned with `docs/space-trucking/TELEMETRY.md`.
+  Nothing identifying, nothing transmitted. Native builds never collect.
+- Its ambient loops wait for the first press and start at zero volume, so
+  nothing arrives mid-note when the browser wakes the audio context.
+- The shared `web/index.html` carries Space Trucking's shell duties (the
+  mirrors, the ceremony, the consent card); the game is the only reader of
+  the `space-trucking/*` storage keys, and the other prototypes touch no
+  storage.
 
 See `docs/GETTING_STARTED.md` for framework and asset-source links.

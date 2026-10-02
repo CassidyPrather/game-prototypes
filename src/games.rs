@@ -6,6 +6,7 @@
 
 pub mod leitmotif;
 pub mod sand_nomad;
+pub mod space_trucking;
 
 use game_prototypes::shell::GameId;
 
@@ -22,6 +23,12 @@ pub trait Game {
 
     /// Paint inside the shell's letterboxed frame.
     fn draw(&self, frame: &Frame);
+
+    /// The player has left for the menu. The prototype stays in memory and
+    /// will be updated again if they come back, but until then nothing
+    /// calls it: this is the moment to stop anything that would otherwise
+    /// go on sounding. Most have nothing to do.
+    fn leave(&mut self) {}
 }
 
 /// Start a prototype.
@@ -33,6 +40,7 @@ pub async fn load(id: GameId) -> Box<dyn Game> {
     match id {
         GameId::Leitmotif => Box::new(leitmotif::Game::load().await),
         GameId::SandNomad => Box::new(sand_nomad::Game::load().await),
+        GameId::SpaceTrucking => Box::new(space_trucking::Game::load().await),
     }
 }
 
@@ -43,5 +51,6 @@ pub fn emblem(id: GameId, frame: &Frame, centre: MqVec2, width: f32, clock: f32)
     match id {
         GameId::Leitmotif => leitmotif::emblem(frame, centre, width, clock),
         GameId::SandNomad => sand_nomad::emblem(frame, centre, width, clock),
+        GameId::SpaceTrucking => space_trucking::emblem(frame, centre, width, clock),
     }
 }
