@@ -53,6 +53,11 @@ jobs:
         # Run them again on their own so the measured peaks land in the log.
         run: cargo test --lib 'mix::' -- --nocapture
 
+      - name: Enforce Space Trucking's performance budgets
+        # Release-only ceilings with wide headroom; see
+        # docs/space-trucking/BUDGETS.md.
+        run: cargo test --release --test space_trucking_perf -- --ignored
+
       - name: Install cargo-audit
         uses: taiki-e/install-action@cargo-audit
 

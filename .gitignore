@@ -1,2 +1,4 @@
 /target/
 /dist/
+# quad-storage's native persistence file (Space Trucking's save, on the desktop)
+/local.data

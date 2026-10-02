@@ -24,6 +24,10 @@ path = "src/main.rs"
 name = "sim_bench"
 harness = false
 
+[[bench]]
+name = "space_trucking_bench"
+harness = false
+
 [dependencies]
 # `audio` is off in macroquad's default features; the web build also needs
 # quad-snd's audio.js plugin in web/ (see CREDITS.md). It costs ~300 bytes of
@@ -31,6 +35,16 @@ harness = false
 # the decoding, so the heavy native decoders never reach this target.
 macroquad = { version = "0.4", features = ["audio"] }
 fastrand = "2"
+# Space Trucking's save slot and black box: localStorage on the web, a data
+# file natively; needs quad-storage's js plugin vendored into web/ before the
+# browser side actually persists (see CREDITS.md).
+quad-storage = "0.1"
+
+# Space Trucking's native builds read the OS clock and timezone directly for
+# its deep-night window; on the web the shell mirrors the browser's answer
+# instead, so the wasm target never pulls this in.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [dev-dependencies]
 criterion = "0.7"
