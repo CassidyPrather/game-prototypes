@@ -309,11 +309,13 @@ fn samples(sfx: Sfx) -> Vec<f32> {
                 .sum()
         }),
         Sfx::Home => synth::render(3.5, |t| {
-            [D3, A3, D4, FS4, A4]
-                .iter()
-                .map(|&hz| stone_at(t, 0.0, hz, 1.2) * 0.24)
-                .sum::<f32>()
-                + stone_at(t, 0.5, D5, 1.4) * 0.22
+            stone_at(t, 0.5, D5, 1.4).mul_add(
+                0.22,
+                [D3, A3, D4, FS4, A4]
+                    .iter()
+                    .map(|&hz| stone_at(t, 0.0, hz, 1.2) * 0.24)
+                    .sum::<f32>(),
+            )
         }),
         Sfx::Guns => guns(),
         Sfx::Semaphore => synth::render(0.6, |t| {
@@ -496,7 +498,7 @@ fn beam() -> Vec<f32> {
 fn deal() -> Vec<f32> {
     synth::render(1.0, |t| {
         let clasp = noise_burst(t, 0.0, 0.05, 0.7) + noise_burst(t, 0.09, 0.05, 0.5);
-        clasp + chime(t, 0.1, A4 * 2.0, 5.0) * 0.3 + chime(t, 0.18, D5 * 2.0, 4.5) * 0.3
+        chime(t, 0.18, D5 * 2.0, 4.5).mul_add(0.3, chime(t, 0.1, A4 * 2.0, 5.0).mul_add(0.3, clasp))
     })
 }
 
@@ -535,7 +537,7 @@ fn face(emote: Emote) -> Vec<f32> {
             } else {
                 -1.0
             };
-            (saw + square * 0.5) * (-t * 7.0).exp() * 0.35
+            f32::mul_add(square, 0.5, saw) * (-t * 7.0).exp() * 0.35
         }),
         Emote::Pain => synth::render(0.45, |t| {
             let hz = if t < 0.16 { FS4 } else { E4 };
@@ -569,7 +571,7 @@ fn ponder() -> Vec<f32> {
 /// A stone dropped into sand: a thing grew heavier.
 fn heavier() -> Vec<f32> {
     synth::render(0.45, |t| {
-        knock(t, 0.0, 120.0, 70.0, 0.9) + sand(t, 0.3) * 0.5
+        sand(t, 0.3).mul_add(0.5, knock(t, 0.0, 120.0, 70.0, 0.9))
     })
 }
 
@@ -698,7 +700,7 @@ fn pour() -> Vec<f32> {
                     return 0.0;
                 }
                 // Each glug a little higher, as the jar fills.
-                let hz = (i as f32).mul_add(35.0, 260.0) * (1.0 + u * 6.0);
+                let hz = (i as f32).mul_add(35.0, 260.0) * u.mul_add(6.0, 1.0);
                 (TAU * hz * u).sin() * (-u * 25.0).exp() * 0.4
             })
             .sum::<f32>()

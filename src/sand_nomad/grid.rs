@@ -603,7 +603,7 @@ mod tests {
         assert_eq!(grid.fondness_for(ItemId(2)), 2);
         let (_, wanders) = grid.pass_day(0);
         // Boxed in on the left: it cannot move up, right, down or left.
-        assert!(wanders.is_empty());
+        assert_eq!(wanders, []);
         let mut grid = Grid::new(3, 2);
         grid.place(item(1, Kind::Comb, Some(Motive::Love), 6), 0, 0, false)
             .unwrap();

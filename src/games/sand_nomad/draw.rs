@@ -348,11 +348,15 @@ fn history_layer(g: &Game, day: f32) {
         let base = pos(Site::SpadeReef) + vec2(-2.0, -18.0);
         for i in 0..14 {
             let t = g.clock.mul_add(0.4, i as f32 / 14.0).fract();
-            let p = base + vec2((t * 9.0 + i as f32).sin().mul_add(3.0, t * 10.0), -t * 40.0);
+            let p = base
+                + vec2(
+                    t.mul_add(9.0, i as f32).sin().mul_add(3.0, t * 10.0),
+                    -t * 40.0,
+                );
             disc(
                 p.x,
                 p.y,
-                1.0 + t * 3.0,
+                t.mul_add(3.0, 1.0),
                 fade(ink('m'), smoke * (1.0 - t) * 0.8),
             );
         }
@@ -1209,7 +1213,7 @@ fn title(g: &Game) {
         m.y - 8.0,
         5.0,
         7.0,
-        fade(ink('F'), 0.4 + pulse * 0.6),
+        fade(ink('F'), pulse.mul_add(0.6, 0.4)),
     );
     line(m.x, m.y - 9.0, m.x, m.y - 1.0, ink('0'));
     line(m.x - 6.0, m.y - 1.0, m.x + 6.0, m.y - 1.0, ink('0'));

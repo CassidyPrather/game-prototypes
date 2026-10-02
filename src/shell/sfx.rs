@@ -141,10 +141,13 @@ fn launch() -> Vec<f32> {
     let mut rng = fastrand::Rng::with_seed(NOISE_SEED);
     let mut lp = (0.0_f32, 0.0_f32);
     synth::render(SECS, |t| {
-        let notes = chime(t, 0.0, E5, 7.0) * 0.32
-            + chime(t, 0.06, GS5, 7.0) * 0.28
-            + chime(t, 0.12, B5, 6.0) * 0.28
-            + chime(t, 0.18, E6, 5.0) * 0.3;
+        let notes = chime(t, 0.18, E6, 5.0).mul_add(
+            0.3,
+            chime(t, 0.12, B5, 6.0).mul_add(
+                0.28,
+                chime(t, 0.06, GS5, 7.0).mul_add(0.28, chime(t, 0.0, E5, 7.0) * 0.32),
+            ),
+        );
         let noise = rng.f32().mul_add(2.0, -1.0);
         lp.0 = (noise - lp.0).mul_add(0.18, lp.0);
         lp.1 = (lp.0 - lp.1).mul_add(0.18, lp.1);

@@ -801,10 +801,10 @@ mod tests {
             })
         );
         // Section 0 arranges bass and lead, both of which start on step 0.
-        assert!(!notes_for(&events, Instrument::Bass).is_empty());
-        assert!(!notes_for(&events, Instrument::Lead).is_empty());
+        assert_ne!(notes_for(&events, Instrument::Bass), [(0_u8, 0_u32); 0]);
+        assert_ne!(notes_for(&events, Instrument::Lead), [(0_u8, 0_u32); 0]);
         // ...and not drums, which the intro leaves out.
-        assert!(notes_for(&events, Instrument::Drums).is_empty());
+        assert_eq!(notes_for(&events, Instrument::Drums), [(0_u8, 0_u32); 0]);
     }
 
     #[test]
@@ -858,8 +858,8 @@ mod tests {
 
         // Nothing from the lead while it is hushed; the bass carries on.
         let events = run(&mut seq, SONG[0].motif.bar_secs());
-        assert!(notes_for(&events, Instrument::Lead).is_empty());
-        assert!(!notes_for(&events, Instrument::Bass).is_empty());
+        assert_eq!(notes_for(&events, Instrument::Lead), [(0_u8, 0_u32); 0]);
+        assert_ne!(notes_for(&events, Instrument::Bass), [(0_u8, 0_u32); 0]);
 
         // Letting go announces itself once, and repeating it says nothing.
         let mut events = Vec::new();
@@ -877,13 +877,13 @@ mod tests {
         assert!(!seq.is_active(Instrument::Drums));
         seq.set_muted(Instrument::Drums, false, &mut Vec::new());
         let events = run(&mut seq, SONG[0].motif.bar_secs());
-        assert!(notes_for(&events, Instrument::Drums).is_empty());
+        assert_eq!(notes_for(&events, Instrument::Drums), [(0_u8, 0_u32); 0]);
         // And a hush held into the section that has them keeps them quiet.
         seq.set_muted(Instrument::Drums, true, &mut Vec::new());
         let phrase = SONG[0].motif.bar_secs() * BARS_PER_SECTION as f32;
         let events = run(&mut seq, phrase);
         assert_eq!(seq.position().section, 1);
-        assert!(notes_for(&events, Instrument::Drums).is_empty());
+        assert_eq!(notes_for(&events, Instrument::Drums), [(0_u8, 0_u32); 0]);
     }
 
     #[test]

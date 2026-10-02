@@ -276,7 +276,7 @@ mod tests {
         let bank = bank();
         assert!(bank.len() > 20, "suspiciously few voices: {}", bank.len());
         for samples in bank.values() {
-            assert!(!samples.is_empty());
+            assert_ne!(samples.as_slice(), [0.0_f32; 0]);
         }
 
         // Play the whole song with everything on and check every cue finds
