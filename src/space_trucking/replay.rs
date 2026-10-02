@@ -1059,9 +1059,9 @@ mod tests {
             ReplayError::BadSave(SaveError::BadMagic).to_string(),
             "recording's base save: not a Space Trucking save"
         );
-        assert!(!ReplayError::OutOfOrder.to_string().is_empty());
-        assert!(!ReplayError::Stalled.to_string().is_empty());
-        assert!(!ReplayError::TooLong.to_string().is_empty());
-        assert!(!ReplayError::UnsupportedVersion.to_string().is_empty());
+        assert_ne!(ReplayError::OutOfOrder.to_string(), "");
+        assert_ne!(ReplayError::Stalled.to_string(), "");
+        assert_ne!(ReplayError::TooLong.to_string(), "");
+        assert_ne!(ReplayError::UnsupportedVersion.to_string(), "");
     }
 }

@@ -473,7 +473,12 @@ fn wear(c: &Canvas, r: layout::Rect, salt: u64) {
             _ => {
                 let side = (((h >> 48) & 0xF) as f32).mul_add(1.0, 10.0);
                 c.fill(
-                    layout::Rect::new(at.x - side * 0.5, at.y - side * 0.5, side, side),
+                    layout::Rect::new(
+                        side.mul_add(-0.5, at.x),
+                        side.mul_add(-0.5, at.y),
+                        side,
+                        side,
+                    ),
                     fade(SHADOW, 0.05),
                 );
             }

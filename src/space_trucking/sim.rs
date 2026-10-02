@@ -2382,7 +2382,7 @@ mod tests {
                 ..InputFrame::default()
             },
         );
-        assert!(!sim.cues().is_empty());
+        assert_ne!(sim.cues(), []);
 
         sim.advance(TICK_DT, &InputFrame::default());
         assert!(sim.cues().is_empty(), "stale cues: {:?}", sim.cues());
@@ -2619,7 +2619,7 @@ mod tests {
             report.arrived,
             matches!(ff.ship().state, ShipState::Docked(_))
         );
-        assert!(ff.cues().is_empty());
+        assert_eq!(ff.cues(), []);
         let mut step = base;
         for _ in 0..n {
             step.advance(TICK_DT, &InputFrame::default());
