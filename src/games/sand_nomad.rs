@@ -322,6 +322,10 @@ impl crate::games::Game for Game {
         draw::scene(self);
         self.canvas.end(frame);
     }
+
+    fn leave(&mut self) {
+        self.audio.hush();
+    }
 }
 
 // The pointer: pressing, carrying, dropping, clicking.

@@ -46,6 +46,19 @@ impl Audio {
         }
     }
 
+    /// Stop the wind and forget sounds still waiting their turn, for the
+    /// player leaving to the menu. Nothing sets the wind's volume while the
+    /// game is not being updated, so left alone it would blow on under the
+    /// menu, and mute could not reach it. [`Audio::update`] starts it again
+    /// when the player is back.
+    pub fn hush(&mut self) {
+        if let (true, Some(wind)) = (self.wind_on, self.bank.get(&Sfx::Wind)) {
+            audio::stop_sound(wind);
+        }
+        self.wind_on = false;
+        self.queue.clear();
+    }
+
     pub const fn is_muted(&self) -> bool {
         self.muted
     }
@@ -107,6 +120,9 @@ impl Audio {
 
     /// Let queued sounds whose time has come play.
     pub fn update(&mut self, dt: f32) {
+        // A no-op unless the wind has been stopped by `hush`: it is already
+        // blowing, or muted, or audio has not woken.
+        self.start_wind();
         let mut due = Vec::new();
         self.queue.retain_mut(|(wait, sfx)| {
             *wait -= dt;

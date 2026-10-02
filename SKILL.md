@@ -46,8 +46,8 @@ not. Both are split the same way, project first and prototype second.
 - `src/sounds.rs` — bakes `shell::sfx` and plays it once the player has
   pressed something (see the autoplay rule below).
 - `src/games.rs` — the `Game` trait (`update`, `draw`, and `leave`, called
-  when the player escapes to the menu, for a prototype that has loops to
-  silence) and the two matches that wire a prototype in: `load` and `emblem`.
+  when the player escapes to the menu; Sand Nomad's wind and Space
+  Trucking's ambient loops stop there, since nothing else would) and the two matches that wire a prototype in: `load` and `emblem`.
 - `src/ui.rs` also has `Frame::image`, for a prototype that paints into its
   own low-resolution texture and hands it to the frame whole.
 
