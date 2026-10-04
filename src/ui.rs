@@ -56,6 +56,8 @@ pub struct Frame {
     scale: f32,
     /// Top-left of the letterboxed box, in pixels.
     origin: Vec2,
+    /// The whole window, in pixels.
+    window: Vec2,
 }
 
 impl Frame {
@@ -73,7 +75,17 @@ impl Frame {
                 FRAME_W.mul_add(-scale, screen_w) * 0.5,
                 FRAME_H.mul_add(-scale, screen_h) * 0.5,
             ),
+            window: Vec2::new(screen_w, screen_h),
         }
+    }
+
+    /// The whole window, in frame units: the frame plus whatever letterbox
+    /// bars surround it. Backdrops paint across this so they fill the window;
+    /// anything that has to be readable stays inside `0..FRAME_W` by
+    /// `0..FRAME_H`. Returns the top-left and bottom-right corners.
+    #[must_use]
+    pub fn window_bounds(&self) -> (Vec2, Vec2) {
+        (self.frame_pos(Vec2::ZERO), self.frame_pos(self.window))
     }
 
     /// Pixels per frame unit.
