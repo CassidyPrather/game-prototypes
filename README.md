@@ -47,6 +47,12 @@ prototype's own business; Leitmotif does it with `R`.
   cargo across the solar system, meant to be played in the background:
   launch, go do something else, come back to barter cargo for cargo. The
   ship keeps flying while the tab is closed.
+- **[Kitchen Garden](docs/KITCHEN_GARDEN.md)** — one day of cooking from a
+  garden for whoever comes to the hatch: grow, gather, chop, boil, bake and
+  serve, with never quite enough time, wood, coins or hands. It is the demo
+  of **[the cooking module](docs/COOKING.md)**, a std-only, copy-pasteable
+  set of foods, processes, recipes and a cooking state machine, meant to be
+  lifted into other games.
 
 ## How it is built
 
@@ -57,6 +63,9 @@ prototype's own business; Leitmotif does it with `R`.
   - `src/sand_nomad/` — another's rules, world, pixel art and sound.
   - `src/space_trucking/` — another's sim, lockstep netcode, flight
     recorder, opt-in telemetry and synthesis.
+  - `src/cooking/` — the reusable cooking module: foods, processes,
+    recipes, stations, bills. Std only; copy it out whole.
+  - `src/kitchen_garden/` — the cooking demo's day, prices and sounds.
 - `src/main.rs` — the shell's loop: the menu, or whichever prototype is
   running.
   - `src/ui.rs` — the letterboxed 800x600 frame and the drawing primitives
@@ -70,6 +79,8 @@ prototype's own business; Leitmotif does it with `R`.
     into a low-resolution canvas and lays it over the frame.
   - `src/games/space_trucking.rs` — and Space Trucking's, which also keeps
     the save slot and the flight recorder.
+  - `src/games/kitchen_garden.rs` — and Kitchen Garden's, drawn in soft
+    vector shapes rather than pixels.
 
 Adding a prototype is a `GameId` variant, a module under each half, and an
 arm in `games::load` and `games::emblem`. The library tests check the menu
@@ -95,7 +106,7 @@ Format: `cargo fmt`
 Test: `cargo test`
 
 Audio headroom report: `cargo test --lib mix:: -- --nocapture` (and
-`sfx::` for the menu's and Sand Nomad's sounds)
+`sfx::` for the menu's, Sand Nomad's and Kitchen Garden's sounds)
 
 Space Trucking's native-only command-line modes: `cargo run -- --dev`
 unlocks its fast-forward, and `cargo run -- --replay <file>` plays a

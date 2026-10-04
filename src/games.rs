@@ -4,6 +4,7 @@
 //! library's [`GameId`] is the list; these two matches are where a new one
 //! gets wired in.
 
+pub mod kitchen_garden;
 pub mod leitmotif;
 pub mod sand_nomad;
 pub mod space_trucking;
@@ -41,6 +42,7 @@ pub async fn load(id: GameId) -> Box<dyn Game> {
         GameId::Leitmotif => Box::new(leitmotif::Game::load().await),
         GameId::SandNomad => Box::new(sand_nomad::Game::load().await),
         GameId::SpaceTrucking => Box::new(space_trucking::Game::load().await),
+        GameId::KitchenGarden => Box::new(kitchen_garden::Game::load().await),
     }
 }
 
@@ -52,5 +54,6 @@ pub fn emblem(id: GameId, frame: &Frame, centre: MqVec2, width: f32, clock: f32)
         GameId::Leitmotif => leitmotif::emblem(frame, centre, width, clock),
         GameId::SandNomad => sand_nomad::emblem(frame, centre, width, clock),
         GameId::SpaceTrucking => space_trucking::emblem(frame, centre, width, clock),
+        GameId::KitchenGarden => kitchen_garden::emblem(frame, centre, width, clock),
     }
 }

@@ -20,11 +20,18 @@ pub enum GameId {
     SandNomad,
     /// An ambient game of hauling cargo across the solar system.
     SpaceTrucking,
+    /// A day of cooking from a garden, for whoever comes to the hatch.
+    KitchenGarden,
 }
 
 impl GameId {
     /// Every prototype, in the order the menu lists them.
-    pub const ALL: [Self; 3] = [Self::Leitmotif, Self::SandNomad, Self::SpaceTrucking];
+    pub const ALL: [Self; 4] = [
+        Self::Leitmotif,
+        Self::SandNomad,
+        Self::SpaceTrucking,
+        Self::KitchenGarden,
+    ];
 
     /// Display name, the one piece of text the menu shows.
     #[must_use]
@@ -33,6 +40,7 @@ impl GameId {
             Self::Leitmotif => "Leitmotif",
             Self::SandNomad => "Sand Nomad",
             Self::SpaceTrucking => "Space Trucking",
+            Self::KitchenGarden => "Kitchen Garden",
         }
     }
 }
