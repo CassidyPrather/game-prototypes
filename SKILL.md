@@ -10,7 +10,7 @@ compiled to wasm, shipped as a static page. Native desktop builds also work.
 Crate `game-prototypes`, lib `game_prototypes`, bin `game-prototypes`.
 Built on Cassidy's game-template. Code is AGPL-3.0-or-later.
 
-There are three prototypes. **Leitmotif**: a journey home whose rules are
+There are four prototypes. **Leitmotif**: a journey home whose rules are
 set by its music — the current motif decides how the world behaves, each
 voice in the band drives a hazard, and holding the music holds everything it
 drives. **Sand Nomad**: a hand-made trading circuit of a dry ocean where
@@ -20,7 +20,11 @@ problem with a hold full of feelings), bartering on a scale with traders
 who never mention the weight of what they hand over. **Space Trucking**: an
 ambient, background-playable game of hauling cargo across the solar system and
 bartering it cargo-for-cargo; it keeps its own save and the ship flies on in
-real time while you are away. None has any text, only icons and key caps (the
+real time while you are away. **Kitchen Garden**: one day of cooking from a garden
+for whoever comes to the hatch — the demo of **the cooking module**
+(`src/cooking/`), a std-only, copy-pasteable set of foods, processes (physical,
+heat, time), recipes and a station state machine, meant to be lifted whole
+into other games. None has any text, only icons and key caps (the
 menu names its cards, and Space Trucking prints a version string in a corner).
 
 ## Repo Map
@@ -170,6 +174,35 @@ there, so this section is the map of where each landed.
 - `tests/space_trucking_perf.rs` — CI-enforced release-mode ceilings
   (`docs/space-trucking/BUDGETS.md`); `benches/space_trucking_bench.rs`.
 
+### The cooking module and Kitchen Garden
+
+The module's guide (copying it out, the station's states, bills, how to
+extend): `docs/COOKING.md`. The demo's rules and knobs:
+`docs/KITCHEN_GARDEN.md`.
+
+- `src/cooking.rs`, `src/cooking/` — **the reusable part.** `food` (one flat
+  enum, stages and groups), `process` (three kinds: physical is worked,
+  heat is ticked and burns, time is ticked and waits), `recipe` (the
+  `RECIPES` table and multiset lookups), `station` (the state machine:
+  Idle → Working → Ready, events drained), `stock`, `bill` (cost from the
+  ground up). It must stay std-only and refer to itself only through
+  `super::` — `the_module_can_be_copied_out_whole` enforces it. Its tests
+  keep the recipe table well-formed; run them after any recipe change.
+- `src/kitchen_garden/day.rs` — the demo's rules as a deterministic state
+  machine around seven `Station`s: places, the garden, hen, cow, well,
+  woodpile and hearth fuel, pantry, market, compost, customers. Food moves
+  only through `move_food`, which checks both ends first. Its `tests.rs` has
+  the balance bot (first mark, not the third) and a monkey test.
+- `src/kitchen_garden/prices.rs` — prices and patience derived from
+  `cooking::bill`; keep them derived, never hand-set per dish.
+- `src/kitchen_garden/sfx.rs` — sounds in one G major pentatonic, two loops,
+  headroom-tested like Sand Nomad's.
+- `src/games/kitchen_garden.rs` — pointer (drag, hold-to-work, click) and
+  cue reactions; `layout` is the one source of rectangles. `pen.rs` is soft
+  vector shapes in frame units plus the palette, `icons.rs` draws every
+  `Food`/`Process`/`Kind`, `draw.rs` the scene, `fx.rs` cosmetic particles,
+  `audio.rs` the bank and loops.
+
 ## Commands
 
 ```bash
@@ -181,6 +214,8 @@ cargo fmt                                                     # format
 cargo test                                                    # test
 cargo test --lib mix:: -- --nocapture                         # audio headroom report
 cargo test --lib sand_nomad::journey -- --nocapture           # the bot's circuit, burden, deals
+cargo test --lib cooking                                      # the reusable cooking module
+cargo test --lib kitchen_garden::day -- --nocapture           # Kitchen Garden's bot, coins per seed
 BOT_TRACE=1 cargo test --lib a_bot_can -- --nocapture         # ...and its hold at every stop
 ./scripts/build-web.sh                                        # wasm -> dist/web/
 python3 -m http.server --directory dist/web 8080              # serve it

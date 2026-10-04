@@ -14,7 +14,13 @@
 //!   you grow attached to weighs on you.
 //! - [`space_trucking`] is an ambient game of hauling cargo across the solar
 //!   system, built to be played in the background.
+//! - [`cooking`] is not a prototype but a reusable, copy-pasteable cooking
+//!   system: foods, processes, recipes and a station state machine.
+//! - [`kitchen_garden`] is its demo: a day of cooking from a garden for
+//!   whoever comes to the hatch.
 
+pub mod cooking;
+pub mod kitchen_garden;
 pub mod leitmotif;
 pub mod sand_nomad;
 pub mod shell;
