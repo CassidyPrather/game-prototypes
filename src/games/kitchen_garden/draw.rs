@@ -361,7 +361,7 @@ fn cow(game: &Game, pen: &Pen) {
     let wag = (game.clock * 2.3).sin() * 6.0;
     pen.line(
         body + vec2(50.0, -10.0),
-        body + vec2(58.0, 14.0 + wag * 0.3),
+        body + vec2(58.0, wag.mul_add(0.3, 14.0)),
         2.0,
         ink::LINE,
     );
@@ -569,8 +569,16 @@ fn compost(game: &Game, pen: &Pen) {
         0.0,
         ink::SOIL_RICH,
     );
-    pen.circle(c + vec2(-8.0, -6.0 - heap * 0.3), 4.0, dark(ink::LEAF, 0.3));
-    pen.circle(c + vec2(6.0, -4.0 - heap * 0.4), 3.0, ink::BEAN);
+    pen.circle(
+        c + vec2(-8.0, f32::mul_add(heap, -0.3, -6.0)),
+        4.0,
+        dark(ink::LEAF, 0.3),
+    );
+    pen.circle(
+        c + vec2(6.0, f32::mul_add(heap, -0.4, -4.0)),
+        3.0,
+        ink::BEAN,
+    );
     for k in 0..6 {
         let x = (k as f32).mul_add(10.0, c.x - 26.0);
         pen.capsule(vec2(x, c.y - 18.0), vec2(x, c.y + 8.0), 2.0, ink::WOOD);
@@ -912,8 +920,8 @@ fn pot(game: &Game, pen: &Pen, r: Rect, s: f32) {
             let t = (k as f32).mul_add(0.37, game.clock * 1.8).fract();
             let x = (k as f32 * 2.3).sin().mul_add(22.0, c.x);
             pen.circle(
-                vec2(x, c.y - 18.0 - t * 3.0),
-                2.0 + t * 2.0,
+                vec2(x, t.mul_add(-3.0, c.y - 18.0)),
+                t.mul_add(2.0, 2.0),
                 alpha(ink::WHITE, 1.0 - t),
             );
         }
@@ -941,7 +949,11 @@ fn pan(game: &Game, pen: &Pen, r: Rect, s: f32) {
         for k in 0..5 {
             let t = (k as f32).mul_add(0.29, game.clock * 3.0).fract();
             let x = (k as f32 * 1.9).cos().mul_add(26.0, c.x);
-            pen.circle(vec2(x, c.y - t * 10.0), 1.4, alpha(ink::FLAME_HOT, 1.0 - t));
+            pen.circle(
+                vec2(x, t.mul_add(-10.0, c.y)),
+                1.4,
+                alpha(ink::FLAME_HOT, 1.0 - t),
+            );
         }
     }
 }
@@ -1046,7 +1058,7 @@ fn board(game: &Game, pen: &Pen, r: Rect, s: f32) {
     } else {
         0.0
     };
-    let blade = c + vec2(20.0, -30.0 + chop * 16.0);
+    let blade = c + vec2(20.0, f32::mul_add(chop, 16.0, -30.0));
     pen.poly(
         &[
             blade,
@@ -1122,7 +1134,10 @@ fn crock(game: &Game, pen: &Pen, r: Rect, s: f32) {
         -8.0
     };
     pen.ellipse(
-        c - vec2(0.0, 24.0 - lift * 0.0 + if shut { 0.0 } else { 8.0 }),
+        c - vec2(
+            0.0,
+            f32::mul_add(lift, -0.0, 24.0) + if shut { 0.0 } else { 8.0 },
+        ),
         vec2(24.0, 6.0),
         if shut { 0.0 } else { -0.25 },
         dark(ink::CLAY, 0.15),
@@ -1208,7 +1223,7 @@ fn hint(game: &Game, pen: &Pen, id: StationId, r: Rect) {
         above + vec2(0.0, 20.0),
         alpha(ink::WHITE, 0.85),
     );
-    let left = above.x - w * 0.5 + 18.0;
+    let left = w.mul_add(-0.5, above.x) + 18.0;
     let fade = if ready { 1.0 } else { 0.45 };
     icons::process(pen, process, vec2(left, above.y), 18.0);
     let arrow = vec2(left + 14.0, above.y);
@@ -1230,14 +1245,14 @@ fn hint(game: &Game, pen: &Pen, id: StationId, r: Rect) {
         let p = pulse(game.clock * 1.5);
         pen.ring(
             at,
-            17.0 + p * 3.0,
+            p.mul_add(3.0, 17.0),
             2.0,
             alpha(kind_colour(process.kind()), 0.5f32.mul_add(p, 0.5)),
         );
         if st.drive() == Drive::Effort {
             // Hold the button to work.
             let dot = vec2(r.x + r.w - 12.0, r.y + 34.0);
-            pen.circle(dot, 3.0 + p * 1.5, alpha(ink::LINE, 0.5));
+            pen.circle(dot, p.mul_add(1.5, 3.0), alpha(ink::LINE, 0.5));
         }
     }
 }
@@ -1271,7 +1286,7 @@ fn hatch(game: &Game, pen: &Pen) {
                     (t * PI * 3.0)
                         .sin()
                         .max(0.0)
-                        .mul_add(-10.0, (t * 2.0 - 0.6).max(0.0).powi(2) * 120.0),
+                        .mul_add(-10.0, f32::mul_add(t, 2.0, -0.6).max(0.0).powi(2) * 120.0),
                     1.0,
                 )
             } else {
@@ -1327,7 +1342,7 @@ fn villager(game: &Game, pen: &Pen, c: &Customer, r: Rect, sink: f32, mood: f32)
     let base = vec2(mid(r).x, r.y + r.h - 8.0 + sink);
     // Shoulders.
     pen.rrect_centred(
-        base - vec2(0.0, 10.0 - breathe * 0.3),
+        base - vec2(0.0, breathe.mul_add(-0.3, 10.0)),
         vec2(70.0, 34.0),
         16.0,
         shirt,
@@ -1618,15 +1633,23 @@ fn card(game: &Game, pen: &Pen) {
     if appear < 1.0 {
         return;
     }
-    let y = at.y + h * 0.5;
-    let mut x = at.x + 6.0 + icon * 0.5;
+    let y = f32::mul_add(h, 0.5, at.y);
+    let mut x = f32::mul_add(icon, 0.5, at.x + 6.0);
     if let Some(process) = process {
         for (k, &input) in inputs.iter().enumerate() {
             icons::food(pen, input, vec2(x, y), icon);
             x += icon + 6.0;
             if k + 1 < inputs.len() {
-                pen.rect_centred(vec2(x - icon * 0.5 - 3.0, y), vec2(6.0, 2.0), ink::LINE);
-                pen.rect_centred(vec2(x - icon * 0.5 - 3.0, y), vec2(2.0, 6.0), ink::LINE);
+                pen.rect_centred(
+                    vec2(f32::mul_add(icon, -0.5, x) - 3.0, y),
+                    vec2(6.0, 2.0),
+                    ink::LINE,
+                );
+                pen.rect_centred(
+                    vec2(f32::mul_add(icon, -0.5, x) - 3.0, y),
+                    vec2(2.0, 6.0),
+                    ink::LINE,
+                );
             }
         }
         pen.circle(
@@ -1901,8 +1924,8 @@ fn emblem_art(pen: &Pen, c: Vec2, k: f32, clock: f32) {
             .mul_add(4.0, (i as f32 - 1.0) * 18.0)
             .mul_add(u, c.x);
         pen.circle(
-            vec2(x, (20.0 + t * 30.0).mul_add(-u, c.y)),
-            (5.0 + t * 4.0) * u,
+            vec2(x, t.mul_add(30.0, 20.0).mul_add(-u, c.y)),
+            t.mul_add(4.0, 5.0) * u,
             alpha(ink::WHITE, 0.8 * (1.0 - t)),
         );
     }

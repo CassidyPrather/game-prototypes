@@ -651,7 +651,7 @@ fn oven() -> Vec<f32> {
         };
         let ring =
             (partial(1.0, 7.0, 1.0) + partial(2.76, 12.0, 0.4) + partial(5.4, 20.0, 0.2)) * 0.25;
-        let latch = noise_burst(t, 0.14, 0.01, 0.2) + chime(t, 0.14, D6, 40.0) * 0.12;
+        let latch = chime(t, 0.14, D6, 40.0).mul_add(0.12, noise_burst(t, 0.14, 0.01, 0.2));
         knock(t, 0.0, 150.0, G2, 0.9) + ring + latch
     })
 }
@@ -820,7 +820,7 @@ fn buy() -> Vec<f32> {
             let thud = (TAU * G2 * u).sin().mul_add(0.6, lp * 2.0);
             thud * (-u * 35.0).exp()
         };
-        coins + purse * 0.6
+        purse.mul_add(0.6, coins)
     })
 }
 
