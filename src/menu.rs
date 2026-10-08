@@ -470,9 +470,10 @@ impl Screen {
             (-30.0, 8.0, 24.0),
             (88.0, 12.0, 20.0),
         ];
-        let span = ui::FRAME_W + 360.0;
+        let (min, max) = frame.window_bounds();
+        let span = max.x - min.x + 360.0;
         for (y, speed, size, start) in CLOUDS {
-            let x = self.clock.mul_add(speed, start).rem_euclid(span) - 180.0;
+            let x = self.clock.mul_add(speed, start).rem_euclid(span) + min.x - 180.0;
             // Solid, in the sky's own colour lifted toward white, rather than
             // translucent white: overlapping translucent puffs show every
             // circle's edge, and a cloud should read as one shape.
@@ -502,8 +503,10 @@ impl Screen {
         const WIDTH: f32 = 126.0;
         const STEP: f32 = 14.0;
         let appear = unit(self.shown * 2.0);
+        // Hugs the window's left edge, and runs the window's full height.
+        let (min, max) = frame.window_bounds();
         let columns = (WIDTH / STEP) as usize;
-        let rows = (ui::FRAME_H / STEP) as usize + 1;
+        let rows = ((max.y - min.y) / STEP) as usize + 1;
         for (shift, colour) in [(0.0, brand::SPARK_LILAC), (7.0, brand::SPARK_VIOLET)] {
             for column in 0..=columns {
                 let x = (column as f32).mul_add(STEP, shift) + 4.0;
@@ -511,13 +514,13 @@ impl Screen {
                 // mask on the same field.
                 let mask = 1.0 - unit(WIDTH.mul_add(-0.4, x) / (WIDTH * 0.6));
                 for row in 0..=rows {
-                    let y = (row as f32).mul_add(STEP, shift);
+                    let y = (row as f32).mul_add(STEP, shift) + min.y;
                     let wave = x
                         .mul_add(0.05, y.mul_add(-0.022, self.clock * 1.8))
                         .sin()
                         .mul_add(0.5, 0.5);
                     frame.sparkle(
-                        frame.at(MqVec2::new(x, y)),
+                        frame.at(MqVec2::new(x + min.x, y)),
                         4.2 * wave.mul_add(0.5, 0.5),
                         with_alpha(colour, colour.a * mask * appear),
                     );
@@ -535,11 +538,13 @@ impl Screen {
             MqVec2::new(0.82, 0.86),
             MqVec2::new(0.2, 0.72),
         ];
+        let (min, max) = frame.window_bounds();
+        let centre = CENTRE + MqVec2::new(min.x, max.y - ui::FRAME_H);
         let turn = (self.clock * 0.35).sin().mul_add(4.0, 12.0).to_radians();
         let rotation = MqVec2::from_angle(turn);
         let corners = POINTS.map(|point| {
             let local = (point - MqVec2::splat(0.5)) * SIZE;
-            frame.at(CENTRE + rotation.rotate(local))
+            frame.at(centre + rotation.rotate(local))
         });
         frame.outline(
             &corners,
@@ -565,28 +570,34 @@ impl Screen {
         // The ticks grow in along each ruler as the menu arrives.
         let grown = |along: f32| unit(self.shown.mul_add(2.2, -along * 0.8));
 
-        let top = (ui::FRAME_W / TICK_SPACING) as usize;
-        for i in 0..=top {
+        // The rulers run along the window's edges, not the frame's, with the
+        // ticks counted from the frame's own corner so they never shift.
+        let (min, max) = frame.window_bounds();
+        let (edge_top, edge_right) = (min.y, max.x);
+        let first = (min.x / TICK_SPACING).floor() as i32;
+        let last = (max.x / TICK_SPACING).ceil() as i32;
+        for i in first..=last {
             let x = i as f32 * TICK_SPACING;
             let bump = gauss(x - ruler.at.x, sigma.x) * ruler.amp;
-            let (length, colour) = tick(i, bump);
+            let (length, colour) = tick(i.rem_euclid(10) as usize, bump);
             let length = length * grown(x / ui::FRAME_W);
             frame.line(
-                frame.at(MqVec2::new(x, 0.0)),
-                frame.at(MqVec2::new(x, length)),
+                frame.at(MqVec2::new(x, edge_top)),
+                frame.at(MqVec2::new(x, edge_top + length)),
                 1.2,
                 colour,
             );
         }
-        let right = (ui::FRAME_H / TICK_SPACING) as usize;
-        for i in 0..=right {
+        let first = (min.y / TICK_SPACING).floor() as i32;
+        let last = (max.y / TICK_SPACING).ceil() as i32;
+        for i in first..=last {
             let y = i as f32 * TICK_SPACING;
             let bump = gauss(y - ruler.at.y, sigma.y) * ruler.amp;
-            let (length, colour) = tick(i, bump);
+            let (length, colour) = tick(i.rem_euclid(10) as usize, bump);
             let length = length * grown(y / ui::FRAME_H);
             frame.line(
-                frame.at(MqVec2::new(ui::FRAME_W, y)),
-                frame.at(MqVec2::new(ui::FRAME_W - length, y)),
+                frame.at(MqVec2::new(edge_right, y)),
+                frame.at(MqVec2::new(edge_right - length, y)),
                 1.2,
                 colour,
             );
@@ -595,7 +606,7 @@ impl Screen {
         // A cursor on each ruler, at the peak of its bump.
         let cursor = with_alpha(brand::MAGENTA, 0.9 * ruler.amp * (1.0 - ruler.focus));
         let reach = TICK_LEN[2] + TICK_BUMP + 5.0;
-        let tip = frame.at(MqVec2::new(ruler.at.x, reach));
+        let tip = frame.at(MqVec2::new(ruler.at.x, edge_top + reach));
         let s = frame.scale() * 5.0;
         Frame::triangle(
             tip,
@@ -603,7 +614,7 @@ impl Screen {
             tip + MqVec2::new(s, s * 1.4),
             cursor,
         );
-        let tip = frame.at(MqVec2::new(ui::FRAME_W - reach, ruler.at.y));
+        let tip = frame.at(MqVec2::new(edge_right - reach, ruler.at.y));
         Frame::triangle(
             tip,
             tip + MqVec2::new(-s * 1.4, -s),
@@ -615,8 +626,8 @@ impl Screen {
         let bracket = with_alpha(brand::BANANA, 0.95 * ruler.focus * ruler.amp);
         let from = chosen.centre - half;
         let to = chosen.centre + half;
-        let y = reach + 2.0;
-        let x = ui::FRAME_W - reach - 2.0;
+        let y = edge_top + reach + 2.0;
+        let x = edge_right - reach - 2.0;
         let end = 5.0;
         frame.line(
             frame.at(MqVec2::new(from.x, y)),
@@ -692,9 +703,10 @@ impl Screen {
         let at = |local: MqVec2| frame.at(centre + local * scale);
         let size = CARD * scale;
         let corner = at(CARD * -0.5);
-        if corner.x > frame.at(MqVec2::new(ui::FRAME_W, 0.0)).x
-            || at(CARD * 0.5).x < frame.at(MqVec2::ZERO).x
-        {
+        // Cards are culled against the window, not the frame, so ones in the
+        // margins beside a wide window still show.
+        let (min, max) = frame.window_bounds();
+        if corner.x > frame.at(max).x || at(CARD * 0.5).x < frame.at(min).x {
             return;
         }
         let lift = if chosen {
@@ -958,9 +970,10 @@ impl Screen {
         let size = 12.0;
         let appear = ease_out_cubic(unit((self.shown - 0.4) / 0.4));
         let width = frame.label_width(font, VERSION, size) + 16.0;
+        let (min, max) = frame.window_bounds();
         let at = MqVec2::new(
-            (1.0 - appear).mul_add(-width, width.mul_add(0.5, 14.0)),
-            ui::FRAME_H - 20.0,
+            (1.0 - appear).mul_add(-width, width.mul_add(0.5, 14.0)) + min.x,
+            max.y - 20.0,
         );
         chip(frame, frame.at(at), MqVec2::new(width, 20.0), 1.0);
         frame.label(
@@ -1052,23 +1065,30 @@ fn cover(centre: MqVec2) -> f32 {
     .fold(0.0, f32::max)
 }
 
-/// The page: wirenook's sky, a gradient at 155°.
+/// The page: wirenook's sky, a gradient at 155°, painted across the whole
+/// window rather than just the frame so a wide or tall window has no bars.
 fn sky(frame: &Frame) {
-    const BANDS: usize = 6;
-    let band = ui::FRAME_H / BANDS as f32;
-    for i in 0..BANDS {
-        let top = i as f32 * band;
-        let bottom = top + band;
-        frame.gradient(
-            frame.at(MqVec2::new(0.0, top)),
-            MqVec2::new(ui::FRAME_W, band),
-            [
-                sky_at(MqVec2::new(0.0, top)),
-                sky_at(MqVec2::new(ui::FRAME_W, top)),
-                sky_at(MqVec2::new(ui::FRAME_W, bottom)),
-                sky_at(MqVec2::new(0.0, bottom)),
-            ],
-        );
+    // The gradient is piecewise-linear along a diagonal, which a rectangle
+    // shaded between four corners only approximates, so it is cut into a grid
+    // of small ones.
+    const CELLS: usize = 8;
+    let (min, max) = frame.window_bounds();
+    let cell = (max - min) / CELLS as f32;
+    for row in 0..CELLS {
+        for column in 0..CELLS {
+            let from = min + cell * MqVec2::new(column as f32, row as f32);
+            let to = from + cell;
+            frame.gradient(
+                frame.at(from),
+                cell,
+                [
+                    sky_at(from),
+                    sky_at(MqVec2::new(to.x, from.y)),
+                    sky_at(to),
+                    sky_at(MqVec2::new(from.x, to.y)),
+                ],
+            );
+        }
     }
 }
 
