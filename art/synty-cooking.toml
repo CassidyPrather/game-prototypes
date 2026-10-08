@@ -1,0 +1,899 @@
+# Which Synty mesh stands for which food in the cooking module.
+#
+# Written by hand, then every id below was checked against Space Trucking's
+# art catalogue (C:/Source/space-trucking/art/dex/*.toml) and every `food.*`
+# table against `Food::ALL` in src/cooking/food.rs. It holds names, digests
+# and English only, which is the same kind of thing that catalogue is; no
+# mesh or texture is carried. See docs/SYNTY_COOKING.md for the reading.
+#
+#   id        "<pack>/<mesh>": the catalogue's own key. Unique across all 115
+#             packs, because the same mesh name recurs between them.
+#   source    where the mesh is inside the pack's Source Files download
+#   sha256    digest of that source file, so a renamed or updated pack is noticed
+#   fit       exact    it is the food
+#             close    the right thing in a different form or state
+#             stand-in a vessel or proxy; tint it, or fill it
+#             gap      nothing fits; the nearest is named and needs composing
+#   alts      other ids that could serve, best first; roles are in the doc
+#
+# To use one in Space Trucking's art pipeline, add the pack to its
+# art/manifest.toml and paste `source` under an `[asset.<name>]` table.
+
+[packs]
+# the directory each pack lives in under $SYNTY_STORE, as this machine has it
+polygon_ancient_egypt = "POLYGON - Ancient Egypt"
+polygon_apocalypse_wasteland = "POLYGON - Apocalypse Wasteland"
+polygon_casino = "POLYGON - Casino"
+polygon_dark_fantasy = "POLYGON - Dark Fantasy"
+polygon_dark_fortress = "POLYGON - Dark Fortress"
+polygon_dungeon_pack = "POLYGON - Dungeon Pack"
+polygon_easter_pack = "POLYGON - Easter Pack"
+polygon_fantasy_kingdom_pack = "POLYGON - Fantasy Kingdom Pack"
+polygon_fantasy_village = "POLYGON - Fantasy Village"
+polygon_farm_pack = "POLYGON - Farm Pack"
+polygon_icons_pack = "POLYGON - Icons Pack"
+polygon_kids_pack = "POLYGON - Kids Pack"
+polygon_military_pack = "POLYGON - Military Pack"
+polygon_office_pack = "POLYGON - Office Pack"
+polygon_pirate_pack = "POLYGON - Pirate Pack"
+polygon_pirate_realm = "POLYGON - Pirate Realm"
+polygon_samurai = "POLYGON - Samurai"
+polygon_shops_pack = "POLYGON - Shops Pack"
+polygon_town_pack = "POLYGON - Town Pack"
+polygon_viking_realm = "POLYGON - Viking Realm"
+polygon_xmax_pack = "POLYGON - Xmax Pack"
+simple_fantasy = "SIMPLE - Fantasy"
+
+[food.water]
+variant = "Water"
+stage = "raw"
+fit = "stand-in"
+id = "polygon_fantasy_village/sm_prop_bucket_01"
+name = "SM_Prop_Bucket_01"
+source = "SourceFiles/FBX/SM_Prop_Bucket_01.fbx"
+sha256 = "a1a18be01df2f6aa95c92d0eb755abc60bd24296ab3dda425a52f5ddfd9fd8dd"
+triangles = 585
+alts = [
+    "polygon_fantasy_village/sm_prop_jug_02",
+    "polygon_farm_pack/sm_prop_tool_bucket_01",
+    "polygon_fantasy_village/sm_prop_well_01",
+]
+note = "Water has no shape of its own, so show the vessel: a wooden pail. The game fetches it from a well with a crank, which suits."
+
+[food.milk]
+variant = "Milk"
+stage = "raw"
+fit = "stand-in"
+id = "polygon_fantasy_village/sm_prop_jug_02"
+name = "SM_Prop_Jug_02"
+source = "SourceFiles/FBX/SM_Prop_Jug_02.fbx"
+sha256 = "7dde91ef88a1b695a0fb8b7ba79bcca17b63b0bf5e768fe1aab68c5105106be9"
+triangles = 346
+alts = [
+    "polygon_shops_pack/sm_prop_cafe_milk_jug_01",
+    "polygon_shops_pack/sm_prop_product_milk_01",
+    "polygon_office_pack/sm_prop_milk_01",
+    "polygon_icons_pack/sm_icon_food_milk_01",
+]
+note = "A white pitcher reads as milk. Same trick as water: the container is the icon."
+
+[food.egg]
+variant = "Egg"
+stage = "raw"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_food_egg_01"
+name = "SM_Prop_Food_Egg_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Egg_01.fbx"
+sha256 = "944261c82c21ea46134bca853b594566ef6a236c61b4962cb2541780e011141b"
+triangles = 80
+alts = [
+    "polygon_shops_pack/sm_prop_food_egg_whole_01",
+    "polygon_fantasy_village/sm_prop_nest_01",
+    "polygon_easter_pack/sm_easter_egg_1",
+]
+note = "A plain white whole egg."
+
+[food.carrot]
+variant = "Carrot"
+stage = "raw"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_food_carrot_01"
+name = "SM_Prop_Food_Carrot_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Carrot_01.fbx"
+sha256 = "f0e4f10f62ebebe812bedba7a11bf1cef561546c021cb6b972f2679c8b5a1154"
+triangles = 182
+alts = [
+    "polygon_farm_pack/sm_prop_carrot_01",
+    "polygon_farm_pack/sm_prop_carrot_01_group",
+    "polygon_farm_pack/sm_prop_box_carrot_01",
+    "polygon_fantasy_village/sm_prop_food_carrot_giant_01",
+]
+note = "Orange root with a leafy top."
+
+[food.onion]
+variant = "Onion"
+stage = "raw"
+fit = "exact"
+id = "polygon_farm_pack/sm_prop_onion_01"
+name = "SM_Prop_Onion_01"
+source = "SourceFiles/FBX/SM_Prop_Onion_01.fbx"
+sha256 = "135dca6f788d42fce9744fcdb3009478ad595600013c2a9cef23f36b01bfef0a"
+triangles = 100
+alts = [
+    "polygon_shops_pack/sm_prop_food_onion_whole_01",
+    "polygon_farm_pack/sm_prop_onion_01_group",
+    "polygon_fantasy_kingdom_pack/sm_prop_onion_rope_01",
+    "polygon_town_pack/sm_item_onion_01",
+]
+note = "Fantasy Village has no whole onion; Farm Pack has the best one."
+
+[food.tomato]
+variant = "Tomato"
+stage = "raw"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_food_tomato_01"
+name = "SM_Prop_Food_Tomato_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Tomato_01.fbx"
+sha256 = "f1b1d7f44f0d5e97924fb92118e002644417c25a8e8d0c45f305ef81442ceae7"
+triangles = 206
+alts = [
+    "polygon_farm_pack/sm_prop_tomato_01",
+    "polygon_town_pack/sm_item_tomato_01",
+    "polygon_shops_pack/sm_prop_food_tomato_whole_01",
+    "polygon_farm_pack/sm_prop_tomato_01_group",
+]
+note = "Red, with a green calyx."
+
+[food.wheat]
+variant = "Wheat"
+stage = "raw"
+fit = "exact"
+id = "polygon_fantasy_kingdom_pack/sm_prop_wheat_bunch_01"
+name = "SM_Prop_Wheat_Bunch_01"
+source = "Source_Files/FBX/SM_Prop_Wheat_Bunch_01.fbx"
+sha256 = "4c84288de803a4372c6032e99fa40a2d211b3127a27a4bb58ad2cbfbb3eabeac"
+triangles = 778
+alts = [
+    "polygon_farm_pack/sm_chr_attach_wheat_01",
+    "polygon_farm_pack/sm_prop_plant_wheat_02",
+    "polygon_farm_pack/sm_prop_plant_wheat_optimised_02",
+    "polygon_ancient_egypt/sm_prop_wheat_bunch_01",
+    "simple_fantasy/sf_prop_crops_wheatstack_01",
+]
+note = "A tied sheaf, which reads better as a held item than a single stalk."
+
+[food.rice]
+variant = "Rice"
+stage = "raw"
+fit = "gap"
+id = "polygon_farm_pack/sm_prop_grainbag_open_01"
+name = "SM_Prop_GrainBag_Open_01"
+source = "SourceFiles/FBX/SM_Prop_GrainBag_Open_01.fbx"
+sha256 = "ca30707624fafaf3965a89aa6693a883dc76cfc5aa4e9f31a9452709226c464d"
+triangles = 158
+alts = [
+    "polygon_samurai/sm_env_riceplant_01",
+    "polygon_samurai/sm_prop_basket_rice_01",
+    "polygon_fantasy_village/sm_prop_sack_02",
+    "polygon_icons_pack/sm_icon_crafting_grain_01",
+]
+note = "No pack here has grains of rice. An open sack of grain is the honest stand-in; the one rice plant (Samurai) renders as a flat black tuft and is a weak match."
+
+[food.beans]
+variant = "Beans"
+stage = "raw"
+fit = "exact"
+id = "polygon_farm_pack/sm_prop_bean_01_group"
+name = "SM_Prop_Bean_01_Group"
+source = "SourceFiles/FBX/SM_Prop_Bean_01_Group.fbx"
+sha256 = "580ab215d0c0f6285f0f09a63e6ceb7ff44b4302175b03bb626cd202667984d4"
+triangles = 380
+alts = [
+    "polygon_farm_pack/sm_prop_bean_01_l",
+    "polygon_farm_pack/sm_prop_bean_01_m",
+    "polygon_farm_pack/sm_prop_bean_01_s",
+    "polygon_farm_pack/sm_prop_plant_bush_01_bean",
+]
+note = "A pile of green bean pods."
+
+[food.sugar]
+variant = "Sugar"
+stage = "raw"
+fit = "stand-in"
+id = "polygon_shops_pack/sm_prop_cafe_sugar_box_01"
+name = "SM_Prop_Cafe_Sugar_Box_01"
+source = "SourceFiles/FBX/SM_Prop_Cafe_Sugar_Box_01.fbx"
+sha256 = "1df70cb3e5ba095cee70dee2cae00255455d2ff12ee6b65085fbc3fc0d6ea38f"
+triangles = 318
+alts = [
+    "polygon_office_pack/sm_prop_mints_01",
+    "polygon_pirate_pack/sm_prop_sugarcane_pile_01",
+    "polygon_fantasy_village/sm_prop_sugar_jar_01",
+]
+note = "A box of sugar cubes. WARNING: SM_Prop_Food_Sugar_01 and _02 in the Shops Pack are wooden planks, not sugar; the name is misleading. Fantasy Village's sugar jar is shaped like a strawberry and reads as jam."
+
+[food.tea_leaf]
+variant = "TeaLeaf"
+stage = "raw"
+fit = "stand-in"
+id = "polygon_fantasy_village/sm_prop_food_leaf_01"
+name = "SM_Prop_Food_Leaf_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Leaf_01.fbx"
+sha256 = "70ddfe0f19cdbc6de8ad0febc30372c0d507e45b973974345397a36fb9ebd533"
+triangles = 32
+alts = [
+    "polygon_viking_realm/sm_prop_herb_01",
+    "polygon_fantasy_kingdom_pack/sm_prop_herb_bunch_01",
+    "polygon_icons_pack/sm_icon_crafting_leaf_01",
+]
+note = "One flat lime-green leaf, 32 tris."
+
+[food.spice]
+variant = "Spice"
+stage = "raw"
+fit = "close"
+id = "polygon_fantasy_village/sm_prop_spice_jar_01"
+name = "SM_Prop_Spice_Jar_01"
+source = "SourceFiles/FBX/SM_Prop_Spice_Jar_01.fbx"
+sha256 = "dacfbbafb78dad2059529708e8bdff0fe29d088c2413bb1262c14dade899926e"
+triangles = 260
+alts = [
+    "polygon_fantasy_kingdom_pack/sm_prop_pot_spice_01",
+    "polygon_fantasy_kingdom_pack/sm_prop_pot_spice_02",
+    "polygon_fantasy_kingdom_pack/sm_prop_pot_spice_03",
+    "polygon_farm_pack/sm_prop_pepper_01",
+    "polygon_farm_pack/sm_prop_plant_bush_03_chilli",
+]
+note = "A shaker with a red band."
+
+[food.salt]
+variant = "Salt"
+stage = "raw"
+fit = "close"
+id = "polygon_shops_pack/sm_prop_cafe_shaker_salt_01"
+name = "SM_Prop_Cafe_Shaker_Salt_01"
+source = "SourceFiles/FBX/SM_Prop_Cafe_Shaker_Salt_01.fbx"
+sha256 = "0f38d931ea29f8d1f9183ec7b1bbb4f10cd93c8d318606fbd99ebd8e7f42f90e"
+triangles = 100
+alts = [
+    "polygon_shops_pack/sm_prop_cafe_grinder_salt_01",
+    "polygon_shops_pack/sm_prop_cafe_salt_grinder_01",
+    "polygon_fantasy_kingdom_pack/sm_item_salt_pepper_grinder_01",
+    "polygon_apocalypse_wasteland/sm_env_salt_round_01",
+]
+note = "A shaker. It is a different shape from the spice jar, which is the point."
+
+[food.flour]
+variant = "Flour"
+stage = "prepared"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_food_flour_01"
+name = "SM_Prop_Food_Flour_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Flour_01.fbx"
+sha256 = "e41dffbd66cfa90e53658e23ed4b464e98f247b3c04d6c06c47e0c37e31583f1"
+triangles = 362
+alts = [
+    "polygon_farm_pack/sm_prop_grainbag_01",
+]
+note = "A sack stamped FLOUR with a mound on top."
+
+[food.dough]
+variant = "Dough"
+stage = "prepared"
+fit = "close"
+id = "polygon_shops_pack/sm_prop_food_pizza_dough_01"
+name = "SM_Prop_Food_Pizza_Dough_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Pizza_Dough_01.fbx"
+sha256 = "b9d2dc6c73e120a16d0f90ef14347a5cdf65c6c04fcbaebcd45d7e9eb03be7d7"
+triangles = 90
+alts = [
+    "polygon_fantasy_village/sm_prop_food_steambun_02",
+]
+note = "A flat unbaked disc."
+
+[food.risen_dough]
+variant = "RisenDough"
+stage = "prepared"
+fit = "stand-in"
+id = "polygon_fantasy_village/sm_prop_food_steambun_02"
+name = "SM_Prop_Food_SteamBun_02"
+source = "SourceFiles/FBX/SM_Prop_Food_SteamBun_02.fbx"
+sha256 = "209b56c8ebbce57176e69b18f174e75a85cf4d17f554e7d1112a6a0fc19db51b"
+triangles = 144
+alts = [
+    "polygon_shops_pack/sm_prop_food_pizza_dough_01",
+]
+note = "A domed pale bun. Or reuse the dough mesh scaled up: the game's own icon is dough rising, so growth is the cue."
+
+[food.batter]
+variant = "Batter"
+stage = "prepared"
+fit = "stand-in"
+id = "polygon_fantasy_village/sm_prop_food_sauce_01"
+name = "SM_Prop_Food_Sauce_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Sauce_01.fbx"
+sha256 = "b2fc25b81d02fa77b83e2a022598fac8f85a260e2cf833b9d61a316ada2dddae"
+triangles = 112
+alts = [
+    "polygon_fantasy_village/sm_prop_bowl_02",
+    "polygon_fantasy_village/sm_prop_bowl_01",
+]
+note = "A white bowl already holding a pool of glossy sauce; tint the pool pale yellow."
+
+[food.butter]
+variant = "Butter"
+stage = "prepared"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_food_butter_01"
+name = "SM_Prop_Food_Butter_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Butter_01.fbx"
+sha256 = "55ccabad3c35171a27e63a5f456506f7f10c0bcdc59eafc50ef986e4811c979e"
+triangles = 112
+note = "A wrapped block of butter."
+
+[food.hot_water]
+variant = "HotWater"
+stage = "prepared"
+fit = "stand-in"
+id = "polygon_fantasy_village/sm_prop_teapot_03"
+name = "SM_Prop_Teapot_03"
+source = "SourceFiles/FBX/SM_Prop_Teapot_03.fbx"
+sha256 = "3e09f8b1468a441a51e0ca98139e05b8df49b063de8e1bf0ac01465f3619b6b9"
+triangles = 810
+alts = [
+    "polygon_fantasy_kingdom_pack/sm_item_kettle_01",
+    "polygon_fantasy_village/sm_prop_cooking_pot_01",
+    "polygon_fantasy_village/sm_prop_teapot_02",
+]
+note = "A red kettle. Add steam with a particle."
+
+[food.chopped_carrot]
+variant = "ChoppedCarrot"
+stage = "prepared"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_food_carrot_slice_01"
+name = "SM_Prop_Food_Carrot_Slice_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Carrot_Slice_01.fbx"
+sha256 = "0f022d6f5f8f91bdbbaa1952df2b33bdf61d29662cbd4b79308536ac6dd18273"
+triangles = 26
+note = "An orange octagonal coin."
+
+[food.chopped_onion]
+variant = "ChoppedOnion"
+stage = "prepared"
+fit = "close"
+id = "polygon_fantasy_village/sm_prop_food_spring_onion_01"
+name = "SM_Prop_Food_Spring_Onion_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Spring_Onion_01.fbx"
+sha256 = "c418e7e5b80d441e7d81dc209d6ec7c9189836737128694622d790f676849d6a"
+triangles = 48
+alts = [
+    "polygon_shops_pack/sm_prop_food_onion_sliced_01",
+    "polygon_shops_pack/sm_prop_food_onion_slice_01",
+    "polygon_shops_pack/sm_prop_food_onion_ring_01",
+]
+note = "A green ring with a yellow core, which is a spring onion slice."
+
+[food.chopped_tomato]
+variant = "ChoppedTomato"
+stage = "prepared"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_food_tomato_slice_01"
+name = "SM_Prop_Food_Tomato_Slice_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Tomato_Slice_01.fbx"
+sha256 = "04ecdf573f4385ce06d8a6f0b50af67f20b4974f131a14c2a2615e932ee6b1c1"
+triangles = 82
+alts = [
+    "polygon_shops_pack/sm_prop_food_tomato_sliced_01",
+    "polygon_shops_pack/sm_prop_food_tomato_cut_01",
+    "polygon_shops_pack/sm_prop_food_tomato_chunk_01",
+]
+note = "A red disc with a pale star."
+
+[food.soaked_beans]
+variant = "SoakedBeans"
+stage = "prepared"
+fit = "gap"
+id = "polygon_fantasy_village/sm_prop_bowl_01"
+name = "SM_Prop_Bowl_01"
+source = "SourceFiles/FBX/SM_Prop_Bowl_01.fbx"
+sha256 = "02332ffac935cbebef6b79bb3168b54d5a2da4936c0f22a9ec3cd032f8b45492"
+triangles = 228
+alts = [
+    "polygon_farm_pack/sm_prop_bean_01_group",
+]
+note = "No soaked beans. Compose: a bowl with the bean pods from the Farm Pack in it."
+
+[food.tea]
+variant = "Tea"
+stage = "dish"
+fit = "stand-in"
+id = "polygon_fantasy_village/sm_prop_tea_cup_02"
+name = "SM_Prop_Tea_Cup_02"
+source = "SourceFiles/FBX/SM_Prop_Tea_Cup_02.fbx"
+sha256 = "8c087310ab7b361ca1d60f7d59eb045fd66723ea147717e4aa9a98c7034da60d"
+triangles = 220
+alts = [
+    "polygon_fantasy_village/sm_prop_tea_cup_01",
+    "polygon_fantasy_village/sm_prop_tea_saucer_01",
+    "polygon_fantasy_village/sm_prop_teapot_02",
+    "polygon_kids_pack/sm_prop_tea_cup_01",
+]
+note = "A white cup with a red rim. The cups are empty, so tint a disc inside."
+
+[food.milk_tea]
+variant = "MilkTea"
+stage = "dish"
+fit = "stand-in"
+id = "polygon_fantasy_village/sm_prop_tea_cup_01"
+name = "SM_Prop_Tea_Cup_01"
+source = "SourceFiles/FBX/SM_Prop_Tea_Cup_01.fbx"
+sha256 = "2d85378b26caac78215e73711c3158167a57dcccbcd9f07a57e21e22e15a84c4"
+triangles = 674
+alts = [
+    "polygon_kids_pack/sm_prop_tea_cup_02",
+]
+note = "The pink cup, so it reads apart from tea."
+
+[food.salad]
+variant = "Salad"
+stage = "dish"
+fit = "stand-in"
+id = "polygon_fantasy_village/sm_prop_food_lettuce_01"
+name = "SM_Prop_Food_Lettuce_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Lettuce_01.fbx"
+sha256 = "39c8906aced81a1ded6d7f66ec11519234de56382f2fa7c214633b2d81c14d38"
+triangles = 562
+alts = [
+    "polygon_fantasy_village/sm_prop_bowl_01",
+    "polygon_fantasy_kingdom_pack/sm_item_food_bowl_01",
+]
+note = "A green head of lettuce. Or compose a bowl from the three chopped-vegetable meshes."
+
+[food.boiled_egg]
+variant = "BoiledEgg"
+stage = "dish"
+fit = "stand-in"
+id = "polygon_shops_pack/sm_prop_food_egg_whole_01"
+name = "SM_Prop_Food_Egg_Whole_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Egg_Whole_01.fbx"
+sha256 = "bd951965668a755b3739a270382e4a1f1f9179d2ecbe5621dd026f1f4c1dcc02"
+triangles = 80
+alts = [
+    "polygon_fantasy_village/sm_prop_food_egg_01",
+    "polygon_easter_pack/sm_easter_egg_1",
+]
+note = "Nothing shows a boiled egg; a second whole egg is as close as it gets."
+
+[food.steamed_rice]
+variant = "SteamedRice"
+stage = "dish"
+fit = "gap"
+id = "polygon_fantasy_village/sm_prop_steam_bowl_01"
+name = "SM_Prop_Steam_Bowl_01"
+source = "SourceFiles/FBX/SM_Prop_Steam_Bowl_01.fbx"
+sha256 = "1c9ed8a0116ff054b1a67418cc9e0df7e35038a9c740441e25e9b76f2a69541c"
+triangles = 240
+alts = [
+    "polygon_icons_pack/sm_icon_food_rice_bowl_01",
+    "polygon_fantasy_village/sm_prop_bowl_02",
+]
+note = "An empty wooden bowl; add a white mound."
+
+[food.soup]
+variant = "Soup"
+stage = "dish"
+fit = "close"
+id = "polygon_fantasy_village/sm_prop_food_sauce_02"
+name = "SM_Prop_Food_Sauce_02"
+source = "SourceFiles/FBX/SM_Prop_Food_Sauce_02.fbx"
+sha256 = "4c4513dc996186b9f3076b20a87f473c52357c9eff29d13c7b0f3d31905bac64"
+triangles = 353
+alts = [
+    "polygon_casino/sm_prop_sushi_bowl_01",
+    "polygon_fantasy_kingdom_pack/sm_item_pot_02_stew",
+    "polygon_military_pack/sm_prop_pot_large_soup_01",
+]
+note = "A white bowl of red soup with a spoon in it."
+
+[food.bean_stew]
+variant = "BeanStew"
+stage = "dish"
+fit = "close"
+id = "polygon_fantasy_village/sm_prop_food_bowl_insert_06"
+name = "SM_Prop_Food_Bowl_Insert_06"
+source = "SourceFiles/FBX/SM_Prop_Food_Bowl_Insert_06.fbx"
+sha256 = "9413ebe402b4b4bf6c0a25720a284803e7457f26ddfc043adf55980a01ebe7db"
+triangles = 879
+alts = [
+    "polygon_fantasy_kingdom_pack/sm_item_pan_01_stew",
+    "polygon_fantasy_kingdom_pack/sm_item_pot_02_stew",
+]
+note = "A hearty dish of stew with vegetables and green and brown pieces."
+
+[food.custard]
+variant = "Custard"
+stage = "dish"
+fit = "close"
+id = "polygon_shops_pack/sm_prop_food_custard_square_01"
+name = "SM_Prop_Food_Custard_Square_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Custard_Square_01.fbx"
+sha256 = "c59c73f36456a8f1c65b8d310e1a14e0af494aaab662de41a9afb46db1883e58"
+triangles = 70
+alts = [
+    "polygon_xmax_pack/sm_xmas_pudding",
+    "polygon_fantasy_village/sm_prop_food_sauce_01",
+]
+note = "A square of custard slice. The name matches."
+
+[food.rice_pudding]
+variant = "RicePudding"
+stage = "dish"
+fit = "stand-in"
+id = "polygon_xmax_pack/sm_xmas_pudding"
+name = "SM_Xmas_Pudding"
+source = "SourceFiles/FBX_Export/SM_Xmas_Pudding.fbx"
+sha256 = "d7a1a60a9343f1430be3e05042d3a2ada5dc65f9abed86023717ba57b0659c35"
+triangles = 382
+alts = [
+    "polygon_casino/sm_prop_sushi_bowl_01",
+    "polygon_fantasy_village/sm_prop_food_sauce_01",
+]
+note = "A pudding on a saucer. No rice pudding exists; tint it pale."
+
+[food.fried_egg]
+variant = "FriedEgg"
+stage = "dish"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_food_egg_02"
+name = "SM_Prop_Food_Egg_02"
+source = "SourceFiles/FBX/SM_Prop_Food_Egg_02.fbx"
+sha256 = "eb24f48f6b185c09f579379138d11a36fbe75b37437d10306456fe82ac87ac2d"
+triangles = 110
+alts = [
+    "polygon_shops_pack/sm_prop_food_egg_cooked_01",
+    "polygon_shops_pack/sm_prop_food_egg_burnt_01",
+]
+note = "A fried egg with a yolk."
+
+[food.omelette]
+variant = "Omelette"
+stage = "dish"
+fit = "stand-in"
+id = "polygon_shops_pack/sm_prop_food_egg_cooked_01"
+name = "SM_Prop_Food_Egg_Cooked_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Egg_Cooked_01.fbx"
+sha256 = "3753ee03748e09c345b443adcdf3814cd11a5385769b6fd81b3c9cb765777f8f"
+triangles = 74
+alts = [
+    "polygon_shops_pack/sm_prop_food_quiche_01",
+    "polygon_fantasy_village/sm_prop_food_egg_02",
+]
+note = "A flat cooked disc; tint it yellow. There is no folded omelette."
+
+[food.pancake]
+variant = "Pancake"
+stage = "dish"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_food_pancakes_03"
+name = "SM_Prop_Food_Pancakes_03"
+source = "SourceFiles/FBX/SM_Prop_Food_Pancakes_03.fbx"
+sha256 = "bac3de716e7af229aab53bbdfb5e0ada11d93d59dd5278dbaab2044cee5b07d0"
+triangles = 456
+alts = [
+    "polygon_fantasy_village/sm_prop_food_pancakes_01",
+    "polygon_fantasy_village/sm_prop_food_pancakes_02",
+    "polygon_fantasy_village/sm_prop_food_pancakes_04",
+    "polygon_shops_pack/sm_prop_food_pancake_01",
+]
+note = "A stack of three with a pat of butter."
+
+[food.fried_rice]
+variant = "FriedRice"
+stage = "dish"
+fit = "stand-in"
+id = "polygon_fantasy_village/sm_prop_food_bowl_insert_01"
+name = "SM_Prop_Food_Bowl_Insert_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Bowl_Insert_01.fbx"
+sha256 = "0460001b308b985eeb5aae9d9994fbd84d4a373d46deac0b9561bb060b785463"
+triangles = 1073
+alts = [
+    "polygon_fantasy_village/sm_prop_food_bowl_insert_05",
+]
+note = "Yellow chunks flecked with green and red on an orange-rimmed dish."
+
+[food.flatbread]
+variant = "Flatbread"
+stage = "dish"
+fit = "close"
+id = "polygon_viking_realm/sm_prop_flatbread_01"
+name = "SM_Prop_Flatbread_01"
+source = "SourceFiles/FBX/SM_Prop_Flatbread_01.fbx"
+sha256 = "38c2ca9f36d98d1a8de958a39b52d5b00cc49605147dd6bbcb954d3c11cf15b2"
+triangles = 614
+alts = [
+    "polygon_shops_pack/sm_prop_food_pizza_cooked_03",
+    "polygon_fantasy_village/sm_prop_food_bowl_insert_05",
+]
+note = "A named flatbread. Its preview is black, which is a wrong-atlas guess and not the mesh."
+
+[food.bread]
+variant = "Bread"
+stage = "dish"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_food_bread_loaf_01"
+name = "SM_Prop_Food_Bread_Loaf_01"
+source = "SourceFiles/FBX/SM_Prop_Food_Bread_Loaf_01.fbx"
+sha256 = "0143088800ff324228220ccda8f1e5adde31c69e968cb784786bbb9aaafc1d77"
+triangles = 240
+alts = [
+    "polygon_fantasy_village/sm_prop_food_bread_loaf_02",
+    "polygon_fantasy_village/sm_prop_food_bread_loaf_03",
+    "polygon_fantasy_village/sm_prop_food_bread_loaf_04",
+    "polygon_fantasy_village/sm_prop_food_bread_slice_01",
+    "polygon_fantasy_village/sm_prop_food_bread_toast_01",
+    "polygon_fantasy_kingdom_pack/sm_item_bread_01",
+]
+note = "A scored golden loaf."
+
+[food.cake]
+variant = "Cake"
+stage = "dish"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_food_cake_05"
+name = "SM_Prop_Food_Cake_05"
+source = "SourceFiles/FBX/SM_Prop_Food_Cake_05.fbx"
+sha256 = "1e695b078c3376f12d102a4d0216ba08095b977ded97c93642d84ccfe9d924aa"
+triangles = 516
+alts = [
+    "polygon_fantasy_village/sm_prop_food_cake_01",
+    "polygon_fantasy_village/sm_prop_food_cake_04",
+    "polygon_fantasy_village/sm_prop_food_cake_slice_01",
+    "polygon_fantasy_village/sm_prop_food_cupcake_01",
+    "polygon_kids_pack/sm_prop_cake_02",
+    "polygon_shops_pack/sm_prop_food_cake_01",
+]
+note = "A layered sponge with jam. The others are fancier."
+
+[food.mush]
+variant = "Mush"
+stage = "waste"
+fit = "stand-in"
+id = "polygon_fantasy_village/sm_prop_food_bowl_insert_04"
+name = "SM_Prop_Food_Bowl_Insert_04"
+source = "SourceFiles/FBX/SM_Prop_Food_Bowl_Insert_04.fbx"
+sha256 = "10c9bf58cc394234fc05fbedf936c694d16d748a356157fda548a6ba9c41d714"
+triangles = 1077
+alts = [
+    "polygon_dark_fantasy/sm_prop_sludge_rotten_01",
+    "polygon_dark_fantasy/sm_prop_bread_rotten_01",
+]
+note = "A heap of discarded food scraps."
+
+[food.charcoal]
+variant = "Charcoal"
+stage = "waste"
+fit = "close"
+id = "polygon_ancient_egypt/sm_prop_brazier_04_insert_01"
+name = "SM_Prop_Brazier_04_Insert_01"
+source = "SourceFiles/FBX/Props/SM_Prop_Brazier_04_Insert_01.fbx"
+sha256 = "89545ef7702803f4bc40363c7f788c3fe959b3c8f67e7c7cf0054626b21be193"
+triangles = 148
+alts = [
+    "polygon_ancient_egypt/sm_prop_brazier_02_insert_01",
+    "polygon_dark_fortress/sm_prop_brazier_04_insert_01",
+    "polygon_shops_pack/sm_prop_food_egg_burnt_01",
+    "polygon_shops_pack/sm_prop_food_onion_burnt_01",
+]
+note = "A mound of ash with charred logs."
+
+[world.board]
+label = "Chopping board"
+fit = "close"
+id = "polygon_fantasy_village/sm_prop_cutting_board_02"
+name = "SM_Prop_Cutting_Board_02"
+source = "SourceFiles/FBX/SM_Prop_Cutting_Board_02.fbx"
+sha256 = "3db203106c50d88edc9889eced3d860c36cad617f3330a9fc9e9dc508559c066"
+triangles = 80
+alts = [
+    "polygon_fantasy_village/sm_prop_chopping_block_01",
+    "polygon_fantasy_village/sm_prop_cutting_board_01",
+]
+note = "Flat board."
+
+[world.quern]
+label = "Quern (grind)"
+fit = "stand-in"
+id = "polygon_shops_pack/sm_prop_cafe_grinder_01"
+name = "SM_Prop_Cafe_Grinder_01"
+source = "SourceFiles/FBX/SM_Prop_Cafe_Grinder_01.fbx"
+sha256 = "76e647ea927b51d3d2069ea63049bbabbde20653d0f851189d071f42fabd6627"
+triangles = 858
+alts = [
+    "polygon_fantasy_kingdom_pack/sm_item_mortar_pestle_01",
+    "polygon_fantasy_kingdom_pack/sm_prop_mortar_and_pestle_01",
+    "polygon_fantasy_village/sm_prop_waterwheel_01",
+]
+note = "A hand-cranked grinder; no quern or millstone exists."
+
+[world.bowl]
+label = "Bowl (knead, mix, churn)"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_bowl_02"
+name = "SM_Prop_Bowl_02"
+source = "SourceFiles/FBX/SM_Prop_Bowl_02.fbx"
+sha256 = "2fb52c2e21f335bc13bab52b650ff0a3d0027790586e4bb13f2dc75f5417c6b7"
+triangles = 286
+alts = [
+    "polygon_fantasy_village/sm_prop_bowl_01",
+    "polygon_fantasy_village/sm_prop_rolling_pin_01",
+    "polygon_fantasy_village/sm_prop_wooden_spoon_01",
+]
+
+[world.crock]
+label = "Crock (prove, soak, steep)"
+fit = "close"
+id = "polygon_fantasy_village/sm_prop_pot_01"
+name = "SM_Prop_Pot_01"
+source = "SourceFiles/FBX/SM_Prop_Pot_01.fbx"
+sha256 = "7ed72be4fcd7c739c1f76dbd44df99621677dac499a6f92eceb5e4bb1d06a41b"
+triangles = 540
+alts = [
+    "polygon_fantasy_village/sm_prop_jar_04",
+    "polygon_fantasy_village/sm_prop_jar_03",
+]
+note = "Clay pot with a lid."
+
+[world.pot]
+label = "Pot (boil)"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_cooking_pot_01"
+name = "SM_Prop_Cooking_Pot_01"
+source = "SourceFiles/FBX/SM_Prop_Cooking_Pot_01.fbx"
+sha256 = "8db039bf0d39794ac34f1d0f33b3d10982ad6329e18586745b04afc8ec779b70"
+triangles = 520
+alts = [
+    "polygon_fantasy_kingdom_pack/sm_item_pot_02",
+    "polygon_fantasy_village/sm_prop_pot_hanging_01",
+]
+
+[world.pan]
+label = "Pan (fry)"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_frying_pan_01"
+name = "SM_Prop_Frying_Pan_01"
+source = "SourceFiles/FBX/SM_Prop_Frying_Pan_01.fbx"
+sha256 = "5d091a447596d3623e311f9241f302ae00ea4703492243447d77051dd818a36d"
+triangles = 270
+alts = [
+    "polygon_fantasy_kingdom_pack/sm_item_pan_01_stew",
+]
+
+[world.oven]
+label = "Oven (bake)"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_oven_02"
+name = "SM_Prop_Oven_02"
+source = "SourceFiles/FBX/SM_Prop_Oven_02.fbx"
+sha256 = "30867099494005c19bd8ea2b5a4d5d97a9b4fc11ea4d262572cd5d65f08ef870"
+triangles = 1526
+alts = [
+    "polygon_fantasy_village/sm_prop_oven_03",
+    "polygon_fantasy_village/sm_prop_woodburner_01",
+    "polygon_fantasy_village/sm_prop_oven_01",
+]
+note = "Clay oven."
+
+[world.log]
+label = "Wood log / wood pile"
+fit = "close"
+id = "polygon_fantasy_village/sm_prop_wood_pile_02"
+name = "SM_Prop_Wood_Pile_02"
+source = "SourceFiles/FBX/SM_Prop_Wood_Pile_02.fbx"
+sha256 = "2adc20b2796fb6e588f71f48ffca5e4025698e62809bb4ee98cc19eac3f15707"
+triangles = 996
+alts = [
+    "polygon_fantasy_village/sm_prop_firewood_rack_01",
+    "polygon_farm_pack/sm_prop_wood_stack_01",
+]
+
+[world.axe]
+label = "Axe"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_wood_axe_01"
+name = "SM_Prop_Wood_Axe_01"
+source = "SourceFiles/FBX/SM_Prop_Wood_Axe_01.fbx"
+sha256 = "20ae9d334279e6926af25868effbead401ab3715a78e0c07fbffb6e9b4ed91af"
+triangles = 242
+alts = [
+    "polygon_fantasy_village/sm_prop_axe_02",
+    "polygon_farm_pack/sm_prop_tool_axe_01",
+]
+
+[world.stump]
+label = "Stump (split wood)"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_chopping_block_01"
+name = "SM_Prop_Chopping_Block_01"
+source = "SourceFiles/FBX/SM_Prop_Chopping_Block_01.fbx"
+sha256 = "a9406592f30bc21ef68644a6e897b302924a15b66309c0f31efd2bcc629c2af2"
+triangles = 150
+
+[world.well]
+label = "Well and crank"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_well_01"
+name = "SM_Prop_Well_01"
+source = "SourceFiles/FBX/SM_Prop_Well_01.fbx"
+sha256 = "0faee34d12f2b70331e9e92409ffca2725d183cc4f49041f9809dfb28c2a84dd"
+triangles = 4442
+alts = [
+    "polygon_farm_pack/sm_prop_well_01",
+    "polygon_fantasy_kingdom_pack/sm_prop_well_01",
+    "polygon_fantasy_kingdom_pack/sm_prop_well_01_handle",
+]
+
+[world.compost]
+label = "Compost heap"
+fit = "close"
+id = "polygon_town_pack/sm_prop_compost_01"
+name = "SM_Prop_Compost_01"
+source = "Source_Files/FBX/SM_Prop_Compost_01.fbx"
+sha256 = "d126343dcf2e1d3a54f9510af2af9b8ad172c073d404b62a8adaad6e4d2ca529"
+triangles = 316
+note = "A black bin."
+
+[world.nest]
+label = "Hen's nest"
+fit = "exact"
+id = "polygon_fantasy_village/sm_prop_nest_01"
+name = "SM_Prop_Nest_01"
+source = "SourceFiles/FBX/SM_Prop_Nest_01.fbx"
+sha256 = "ca3efb1fbddabb9b7d7e3e45efee1708fae101689cdb62e4416ea8477d96c349"
+triangles = 504
+alts = [
+    "polygon_farm_pack/sm_prop_chicken_coop_01",
+]
+note = "Nest holding three eggs. There is no hen mesh."
+
+[world.plot]
+label = "Garden plot"
+fit = "close"
+id = "polygon_farm_pack/sm_env_vege_rows_01"
+name = "SM_Env_Vege_Rows_01"
+source = "SourceFiles/FBX/SM_Env_Vege_Rows_01.fbx"
+sha256 = "88817675eecd86007e233bb1491b53c6483f1dc181dbf3f3c40b66b97d2e4087"
+triangles = 499
+alts = [
+    "polygon_fantasy_village/sm_prop_planter_01",
+    "polygon_farm_pack/sm_prop_plantbox_large_01",
+    "polygon_farm_pack/sm_prop_seedpacket_01",
+]
+note = "Rows of crop shoots."
+
+[world.coin]
+label = "Coin"
+fit = "close"
+id = "polygon_pirate_realm/sm_prop_coin_01"
+name = "SM_Prop_Coin_01"
+source = "FBX/SM_Prop_Coin_01.fbx"
+sha256 = "d5d7662590c33fa686f9e5d2b8f2edfd663044fa3e8c7e3942a6767b0c9181a7"
+triangles = 24
+alts = [
+    "polygon_icons_pack/sm_icon_coin_01",
+    "polygon_dungeon_pack/sm_item_coins_01",
+]
+note = "Gold coin."
+
+[world.basket]
+label = "Pantry basket / crate"
+fit = "close"
+id = "polygon_fantasy_village/sm_prop_basket_02"
+name = "SM_Prop_Basket_02"
+source = "SourceFiles/FBX/SM_Prop_Basket_02.fbx"
+sha256 = "2750d64920629643820ff25568ae3e3a4a5f277145777d067a34375baea565e0"
+triangles = 348
+alts = [
+    "polygon_fantasy_village/sm_prop_crate_01",
+    "polygon_farm_pack/sm_prop_crate_01",
+]
