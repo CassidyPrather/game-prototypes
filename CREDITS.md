@@ -13,6 +13,7 @@ it. Thirty seconds now versus archaeology later.
 | `web/gl.js` | miniquad's wasm loader, vendored from the miniquad 0.4.10 crate — <https://github.com/not-fl3/miniquad> | not-fl3 and contributors | MIT OR Apache-2.0 | 2026-07 |
 | `assets/fonts/AtkinsonHyperlegible-Bold.ttf` | Atkinson Hyperlegible Bold 1.006, as served by the wirenook.net style guide — <https://www.brailleinstitute.org/freefont/>; licence text in `assets/fonts/OFL.txt` | Braille Institute of America (Elliott Scott, Megan Eiswerth, Linus Boman, Theodore Petrosky) | OFL-1.1 | 2026-09 |
 | Sand Nomad's motive marks and emotes (`src/sand_nomad/art.rs`) | Redrawn as pixel art from Cassidy's motif package: the six motive suits (chalice, club, heart, spike, diamond, spade), their hexagon, the hex emotes and the anima ring | Cassidy Prather | The author's own designs, used in this project with permission | 2026-09 |
+| `assets/amoeba/terminal12x12_gs_ro.png` | Amoeba's CP437 bitmap font, carried over from the original C# AmoebaRL, itself from libtcod's font collection — <https://github.com/libtcod/libtcod/blob/develop/data/fonts/terminal12x12_gs_ro.png> | libtcod contributors | CC0 / public domain (libtcod data fonts) | 2026-07 |
 | `web/audio.js` | quad-snd's miniquad audio plugin, vendored unmodified from the quad-snd 0.2.8 crate (`js/audio.js`) — <https://github.com/not-fl3/quad-snd> | not-fl3 and contributors | MIT OR Apache-2.0 | 2026-07 |
 | `web/sapp_jsutils.js` | sapp-jsutils' miniquad plugin, vendored unmodified from the sapp-jsutils 0.1.7 crate (`js/sapp_jsutils.js`) — <https://github.com/not-fl3/sapp-jsutils> | not-fl3 and contributors | MIT OR Apache-2.0 | 2026-08 |
 | `web/quad-storage.js` | quad-storage's miniquad plugin, vendored unmodified from the upstream repo's `js/quad-storage.js` at the quad-storage 0.1.3 release commit (`3760b95`; the published crate ships no js) — <https://github.com/optozorax/quad-storage> | Ilya Sheprut (optozorax) | MIT OR Apache-2.0 | 2026-08 |
@@ -31,8 +32,8 @@ and `quad-storage.js` are Space Trucking's; the other prototypes do not use
 them.)
 
 The sound effects themselves need no credit line — `src/leitmotif/synth.rs`,
-`src/shell/sfx.rs`, `src/sand_nomad/sfx.rs` and `src/space_trucking/synth.rs`
-generate them from arithmetic at startup, so there are no audio assets to
-track. Sand Nomad's pixel art is
+`src/shell/sfx.rs`, `src/sand_nomad/sfx.rs`, `src/space_trucking/synth.rs`,
+`src/kitchen_garden/sfx.rs` and `src/amoeba/synth.rs` generate them from
+arithmetic at startup, so there are no audio assets to track. Sand Nomad's pixel art is
 drawn by hand as data in `src/sand_nomad/art.rs`; the only borrowed part is
 the motif designs credited above.

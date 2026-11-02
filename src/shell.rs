@@ -22,15 +22,18 @@ pub enum GameId {
     SpaceTrucking,
     /// A day of cooking from a garden, for whoever comes to the hatch.
     KitchenGarden,
+    /// A roguelike where you are the amoeba eating its way out of a city.
+    Amoeba,
 }
 
 impl GameId {
     /// Every prototype, in the order the menu lists them.
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 5] = [
         Self::Leitmotif,
         Self::SandNomad,
         Self::SpaceTrucking,
         Self::KitchenGarden,
+        Self::Amoeba,
     ];
 
     /// Display name, the one piece of text the menu shows.
@@ -41,6 +44,7 @@ impl GameId {
             Self::SandNomad => "Sand Nomad",
             Self::SpaceTrucking => "Space Trucking",
             Self::KitchenGarden => "Kitchen Garden",
+            Self::Amoeba => "Amoeba",
         }
     }
 }

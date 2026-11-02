@@ -41,8 +41,8 @@ deliberately below.
 - [ ] `src/space_trucking/` (`sim`, `net`, `synth`, ...) imports no macroquad; cues say what
       happened, never what it sounds like.
 - [ ] Ambient soundscape only — no melodies; new loops pass the seam test.
-- [ ] Budgets green: wasm ≤ 1.5 MB (paste the byte count; the bundle is
-      shared with the other prototypes) and the release perf gates pass
+- [ ] Budgets green: wasm under `MAX_WASM_BYTES` in the CI workflow (paste
+      the byte count; the bundle is shared with the other prototypes) and the release perf gates pass
       (`cargo test --release --test space_trucking_perf -- --ignored`);
       any retuned ceiling is amended in [BUDGETS.md](BUDGETS.md) with a why.
 - [ ] Every asset, including vendored JS, has a CREDITS.md row; CC0/MIT

@@ -73,7 +73,9 @@ jobs:
       contents: write  # Required for attaching the web zip to releases
     env:
       # Optimized-wasm ceiling. Tune per toy; the point is noticing when the payload jumps.
-      MAX_WASM_BYTES: 1500000
+      # Every prototype ships in the one bundle, so this grows when one moves in:
+      # 1.5 MB until Amoeba arrived and took it from ~1.46 MB to ~1.99 MB.
+      MAX_WASM_BYTES: 2250000
     steps:
       - uses: actions/checkout@v4
         with:

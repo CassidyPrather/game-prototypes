@@ -28,6 +28,10 @@ harness = false
 name = "space_trucking_bench"
 harness = false
 
+[[bench]]
+name = "amoeba_bench"
+harness = false
+
 [dependencies]
 # `audio` is off in macroquad's default features; the web build also needs
 # quad-snd's audio.js plugin in web/ (see CREDITS.md). It costs ~300 bytes of
