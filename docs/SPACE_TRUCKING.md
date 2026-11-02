@@ -20,6 +20,11 @@ and was moved here whole from its `main` at `e312fed` (the merge of its
 pull request #2), with nothing dropped; that repository's history was not
 carried over. Its `docs/` live in [space-trucking/](space-trucking/).
 
+The move split the game in two rather than ending the old repository. That
+repository is still under development as the bigger game, and this copy is
+the prototype. Nothing syncs them: a change in one only reaches the other if
+someone ports it across on purpose.
+
 ## Playing
 
 The screen is the ship's console: a star map, a 6×4 cargo hold, and a barter
