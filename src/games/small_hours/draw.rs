@@ -556,7 +556,7 @@ fn hearth_at(pen: &Pen, centre: Vec2, side: f32, embers: f32, full: f32, clock: 
         // Cold: a thread of smoke.
         for i in 0..4_u8 {
             let t = f32::from(i).mul_add(0.25, clock * 0.5).fract();
-            let p = base + vec2((t * 9.0 + clock).sin() * side * 0.06, -t * side * 0.6);
+            let p = base + vec2(t.mul_add(9.0, clock).sin() * side * 0.06, -t * side * 0.6);
             pen.circle(p, side * t.mul_add(0.08, 0.04), alpha(ASH, (1.0 - t) * 0.4));
         }
         return;
@@ -565,7 +565,7 @@ fn hearth_at(pen: &Pen, centre: Vec2, side: f32, embers: f32, full: f32, clock: 
     #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
     let tongues = embers.round().clamp(1.0, 3.0) as u8;
     for i in 0..tongues {
-        let offset = f32::from(i) - f32::from(tongues - 1) * 0.5;
+        let offset = f32::from(tongues - 1).mul_add(-0.5, f32::from(i));
         let wave = f32::from(i).mul_add(2.1, clock * 7.0).sin();
         let height = side * wave.mul_add(0.05, offset.abs().mul_add(-0.1, 0.42));
         let foot = base + vec2(offset * side * 0.2, 0.0);
@@ -829,7 +829,7 @@ fn hud(pen: &Pen, game: &Game, shown: &Shown, hour: f32, dawn: f32, kept: bool) 
     pen.sparkle(sun, sun_size * 1.7, alpha(sun_colour, 0.55 * ruler));
     pen.circle(sun, sun_size, alpha(sun_colour, ruler));
     let moon = vec2(hour.mul_add(gap, left), layout::RULER_Y - 6.0);
-    let moon_level = ruler * (1.0 - smooth((hour - (hours - 1.0)) / 1.0) * 0.8);
+    let moon_level = ruler * smooth((hour - (hours - 1.0)) / 1.0).mul_add(-0.8, 1.0);
     pen.circle(moon, 8.0, alpha(ICE, moon_level));
     pen.circle(
         moon + vec2(4.0, -2.5),
@@ -876,7 +876,7 @@ fn marks(pen: &Pen, game: &Game, dawn: f32) {
                 1 => {
                     let par = game.watch.level().par;
                     for k in 0..par {
-                        let x = (f32::from(k) - f32::from(par - 1) * 0.5) * 11.0;
+                        let x = f32::from(par - 1).mul_add(-0.5, f32::from(k)) * 11.0;
                         pen.round(below + vec2(x, 0.0), vec2(7.0, 10.0), 2.0, ink);
                     }
                 }
@@ -910,7 +910,9 @@ fn pips(pen: &Pen, game: &Game, dawn: f32, kept: bool) {
             pen.ring(p, 4.0, 1.5, alpha(ink, 0.6));
         }
         for mark in 0..best {
-            let x = (f32::from(mark) - f32::from(best - 1) * 0.5).mul_add(6.0, p.x);
+            let x = f32::from(best - 1)
+                .mul_add(-0.5, f32::from(mark))
+                .mul_add(6.0, p.x);
             pen.sparkle(vec2(x, p.y + 15.0), 3.2, alpha(mix(BANANA, ink, 0.3), 0.95));
         }
     }
@@ -1066,7 +1068,7 @@ pub fn emblem(frame: &Frame, centre: Vec2, width: f32, clock: f32) {
     let creep = (clock * 0.7).sin() * 6.0;
     shade(
         &pen,
-        fire + vec2(side * 1.75 + creep, 0.0),
+        fire + vec2(side.mul_add(1.75, creep), 0.0),
         side,
         vec2(-1.0, 0.0),
         EMBER,

@@ -167,7 +167,7 @@ fn samples(sfx: Sfx) -> Vec<f32> {
         Sfx::Notice => synth::render(0.7, |t| {
             // A falling minor third with a shiver on it: something looked up.
             let shiver = (TAU * 11.0 * t).sin().mul_add(0.25, 0.75);
-            (glass(t, 0.0, B4, 7.0) * 0.5 + glass(t, 0.11, GS4, 5.0) * 0.6) * shiver
+            glass(t, 0.11, GS4, 5.0).mul_add(0.6, glass(t, 0.0, B4, 7.0) * 0.5) * shiver
         }),
         Sfx::Drift => synth::render(0.5, |t| glass(t, 0.0, CS4, 7.0) * 0.6),
         Sfx::Snuff => snuff(),
