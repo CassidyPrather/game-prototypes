@@ -12,7 +12,7 @@ Code is AGPL-3.0-or-later. This repo replaced Cassidy's old game-template:
 new small games move in here, and new big games start from a gutted copy
 (`docs/NEW_GAME.md`).
 
-There are five prototypes. **Leitmotif**: a journey home whose rules are
+There are six prototypes. **Leitmotif**: a journey home whose rules are
 set by its music — the current motif decides how the world behaves, each
 voice in the band drives a hazard, and holding the music holds everything it
 drives. **Sand Nomad**: a hand-made trading circuit of a dry ocean where
@@ -29,7 +29,11 @@ heat, time), recipes and a station state machine, meant to be lifted whole
 into other games. **Amoeba Roguelike Remastered**: a remaster of Cassidy's
 2021 7DRL entry — you are the amoeba, engulfing a city's defenders, growing
 organelles from them, and breaking gates to escape; turn-based, CP437, phone
-friendly. None but Amoeba has any text, only icons and key caps (the menu
+friendly. **Small Hours**: keep one fire lit through one night — shades walk
+to the nearest light, nobody can hurt them, and a keeper can only be nearer
+than the fire; when the hearth goes out the night is lived again beside the
+keeper you just were. Turn-based, eight hand-made nights, each with a proven
+par. None but Amoeba has any text, only icons and key caps (the menu
 names its cards, and Space Trucking prints a version string in a corner);
 Amoeba is a roguelike, and its message log is the game.
 
@@ -268,6 +272,38 @@ there.
 - An animation never stands between a keypress and a turn: a command
   arriving mid-animation cuts it short and runs next frame.
 
+### Small Hours
+
+Rules, the nights, why it is like this and what is not known:
+`docs/SMALL_HOURS.md`.
+
+- `src/small_hours/night.rs` — the rules. `World` is one moment and
+  `World::advance` one hour, given a `Step` per keeper; `nearest_light` and
+  `creep` are the whole of what a shade does. `Watch` is the night lived
+  once per keeper: tapes of steps, `step`, `undo`, `again`, `restart`,
+  `marks`. Turn-based, so there is no `InputFrame` and no timestep: one
+  `Step` in, `Cue`s out. Nothing is rolled anywhere.
+- `src/small_hours/nights.rs` — the eight maps. Its tests are the balance
+  check: every night kept at par with all three marks, none under par, none
+  by standing still. Change a map or a rule and run them.
+- `src/small_hours/solve.rs` — exhaustive search over what `n` keepers do
+  together, which is what proves a par. `luck` plays at random, as a rough
+  measure of how forgiving a night is.
+  `examples/small_hours_lab.rs` is the same search as a tool for designing
+  nights.
+- `src/small_hours/sfx.rs` — every sound, C sharp minor pentatonic,
+  headroom-tested. No music.
+- `src/games/small_hours.rs` — keys and pointer into `Step`s, cue
+  reactions, and the timers the drawing needs; `layout` is the one source of
+  positions. `draw.rs` paints through a small `Pen` over the shared `Frame`.
+  The ground is tinted by `tile_targets`, which calls the same
+  `nearest_light` the shades use, so the picture cannot disagree with the
+  rule; keep it that way. `audio.rs` is the bank and two loops.
+- A press is never held up by an animation: `spend` runs the hour at once
+  and the drawing catches up.
+- It keeps the no-text rule, draws only through `Frame`, and touches no
+  storage: marks last as long as the tab does.
+
 ## Commands
 
 ```bash
@@ -291,6 +327,8 @@ cargo run --example space_trucking_convoy                      # six-client lock
 cargo run -- --replay <tape>                                  # play a Space Trucking black box
 cargo test --release --lib amoeba -- --ignored                # Amoeba's whole-playthrough bots
 cargo bench --bench amoeba_bench -- --quick                   # ...and Amoeba's bench
+cargo test --lib small_hours                                  # Small Hours' rules, pars and sounds
+cargo run --release --example small_hours_lab                 # ...each night's par and a way to keep it
 cargo audit                                                   # audit
 ./scripts/cloud-setup.sh                                      # provision a fresh machine (docs/CLOUD_SETUP.md)
 ```

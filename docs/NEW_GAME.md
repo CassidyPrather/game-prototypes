@@ -102,8 +102,8 @@ Delete everything that belongs to the other games:
 - every prototype's library and frontend: `src/leitmotif*`,
   `src/sand_nomad*`, `src/space_trucking*`, `src/cooking*` (copy the cooking
   module out first if you want it; see [COOKING.md](COOKING.md)),
-  `src/kitchen_garden*`, `src/amoeba*`, and their counterparts under
-  `src/games/`;
+  `src/kitchen_garden*`, `src/amoeba*`, `src/small_hours*`, and their
+  counterparts under `src/games/`;
 - `benches/`, `tests/` and `examples/` (keep one bench, rewritten against
   your own sim's hot path);
 - `docs/`, apart from `GETTING_STARTED.md`, `DEPLOYING.md`,

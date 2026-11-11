@@ -20,6 +20,8 @@
 //!   whoever comes to the hatch.
 //! - [`amoeba`] is Amoeba Roguelike Remastered, a turn-based roguelike in
 //!   which you are the monster: a giant amoeba eating its way out of a city.
+//! - [`small_hours`] is a turn-based game of keeping one fire lit through one
+//!   night, lived again and again beside your own earlier turns.
 
 pub mod amoeba;
 pub mod cooking;
@@ -27,6 +29,7 @@ pub mod kitchen_garden;
 pub mod leitmotif;
 pub mod sand_nomad;
 pub mod shell;
+pub mod small_hours;
 pub mod space_trucking;
 
 /// `git describe` version, embedded by `build.rs`.
