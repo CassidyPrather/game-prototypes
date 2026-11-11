@@ -8,6 +8,7 @@ pub mod amoeba;
 pub mod kitchen_garden;
 pub mod leitmotif;
 pub mod sand_nomad;
+pub mod small_hours;
 pub mod space_trucking;
 
 use game_prototypes::shell::{GameId, back};
@@ -62,6 +63,7 @@ pub async fn load(id: GameId) -> Box<dyn Game> {
         GameId::SpaceTrucking => Box::new(space_trucking::Game::load().await),
         GameId::KitchenGarden => Box::new(kitchen_garden::Game::load().await),
         GameId::Amoeba => Box::new(amoeba::Game::load().await),
+        GameId::SmallHours => Box::new(small_hours::Game::load().await),
     }
 }
 
@@ -75,5 +77,6 @@ pub fn emblem(id: GameId, frame: &Frame, centre: MqVec2, width: f32, clock: f32)
         GameId::SpaceTrucking => space_trucking::emblem(frame, centre, width, clock),
         GameId::KitchenGarden => kitchen_garden::emblem(frame, centre, width, clock),
         GameId::Amoeba => amoeba::emblem(frame, centre, width, clock),
+        GameId::SmallHours => small_hours::emblem(frame, centre, width, clock),
     }
 }

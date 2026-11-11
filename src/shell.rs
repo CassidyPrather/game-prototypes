@@ -26,16 +26,19 @@ pub enum GameId {
     KitchenGarden,
     /// A roguelike where you are the amoeba eating its way out of a city.
     Amoeba,
+    /// One fire, one night, and nobody to keep it but yourself, again.
+    SmallHours,
 }
 
 impl GameId {
     /// Every prototype, in the order the menu lists them.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Leitmotif,
         Self::SandNomad,
         Self::SpaceTrucking,
         Self::KitchenGarden,
         Self::Amoeba,
+        Self::SmallHours,
     ];
 
     /// Display name, the one piece of text the menu shows.
@@ -47,6 +50,7 @@ impl GameId {
             Self::SpaceTrucking => "Space Trucking",
             Self::KitchenGarden => "Kitchen Garden",
             Self::Amoeba => "Amoeba",
+            Self::SmallHours => "Small Hours",
         }
     }
 
@@ -61,6 +65,7 @@ impl GameId {
             Self::SpaceTrucking => "space-trucking",
             Self::KitchenGarden => "kitchen-garden",
             Self::Amoeba => "amoeba",
+            Self::SmallHours => "small-hours",
         }
     }
 

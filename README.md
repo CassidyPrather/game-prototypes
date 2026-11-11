@@ -72,6 +72,11 @@ prototype's own business; Leitmotif does it with `R`.
   constantly evolving amoeba: engulf the humans defending their cities, grow
   organelles from their remains, and break the gates to escape. A Rust
   remaster of a 2021 7DRL entry, and the one prototype that is all text.
+- **[Small Hours](docs/SMALL_HOURS.md)** — keep one fire lit through one
+  night. Shades walk to the nearest light and you cannot hurt them, only be
+  nearer than the fire. When that is not enough, the night runs backward
+  and you live it again beside the keeper you just were. Turn-based, eight
+  short nights.
 
 ## Taste
 
@@ -112,6 +117,7 @@ tagged so it also appears at
 | Space Trucking | `space-trucking` | [Space Trucking](https://wirenook.net/blog/reflections/space-trucking/) |
 | Kitchen Garden | `kitchen-garden` | [Kitchen Garden](https://wirenook.net/blog/reflections/kitchen-garden/) |
 | Amoeba Roguelike Remastered | `amoeba` | [AmoebaRL](https://wirenook.net/blog/reflections/amoeba/) |
+| Small Hours | `small-hours` | not yet written |
 
 The slug is also the game's `GameId::slug` in `src/shell.rs`, which is what
 `?game=` reads. When a new one is published, link it here and at the top of
@@ -131,6 +137,8 @@ the game's doc.
   - `src/kitchen_garden/` — the cooking demo's day, prices and sounds.
   - `src/amoeba/` — Amoeba's whole game, turn-based, resolved down to a
     glyph per cell, and its synthesis.
+  - `src/small_hours/` — Small Hours' rules, its eight nights, the
+    exhaustive solver that proves each night's par, and its sounds.
 - `src/main.rs` — the shell's loop: the menu, or whichever prototype is
   running.
   - `src/ui.rs` — the letterboxed 800x600 frame and the drawing primitives
@@ -149,6 +157,8 @@ the game's doc.
   - `src/games/amoeba.rs` — and Amoeba's, which draws CP437 glyphs across
     the whole window rather than the shared frame, and brings an on-screen
     pad for phones.
+  - `src/games/small_hours.rs` — and Small Hours', which paints the ground
+    by whose light is nearest.
 
 Adding a prototype is a `GameId` variant, a module under each half, and an
 arm in `games::load` and `games::emblem`. The library tests check the menu
@@ -193,6 +203,9 @@ Benchmark: `cargo bench --bench sim_bench -- --quick` (and
 `--bench space_trucking_bench`, `--bench amoeba_bench`)
 
 Amoeba's whole-playthrough bots: `cargo test --release --lib amoeba -- --ignored`
+
+Small Hours' workbench, each night's par and a way to keep it:
+`cargo run --release --example small_hours_lab`
 
 Space Trucking's performance budgets:
 `cargo test --release --test space_trucking_perf -- --ignored`
