@@ -313,6 +313,12 @@ impl crate::games::Game for Game {
         self.press = None;
         self.carry = None;
     }
+
+    /// The speaker holds the top-left corner, so the back button takes the
+    /// sky over the hatch instead.
+    fn back_spot(&self) -> MqVec2 {
+        MqVec2::new(crate::ui::FRAME_W - 30.0, 30.0)
+    }
 }
 
 // The pointer.

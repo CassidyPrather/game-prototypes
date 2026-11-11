@@ -34,7 +34,7 @@ use crate::sounds::Sounds;
 use crate::ui::{self, Frame, MqVec2, pulse, with_alpha};
 
 /// wirenook's palette, from its press kit.
-mod brand {
+pub mod brand {
     use macroquad::color::Color;
 
     /// A `#rrggbb` colour at an alpha.

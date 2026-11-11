@@ -32,8 +32,10 @@ what it was trying to do and what came of it. See
 The tests check that the menu can reach every entry, and the compiler catches
 any match arm you miss.
 
-1. **A `GameId` variant** and its name in `src/shell.rs`, appended to
-   `GameId::ALL` in the order the menu should show it.
+1. **A `GameId` variant**, its name and its slug in `src/shell.rs`,
+   appended to `GameId::ALL` in the order the menu should show it. The slug
+   is the game's name in URLs (`?game=<slug>`, and its reflection's address
+   on wirenook.net), so it never changes once published.
 2. **The library half**: `src/<game>.rs` and `src/<game>/`, declared in
    `src/lib.rs`. Pure and deterministic, no macroquad. The shape every
    prototype here keeps: a seed and an input struct go in, the sim advances
@@ -44,8 +46,10 @@ any match arm you miss.
    the others.
 3. **The frontend half**: `src/games/<game>.rs` (and `src/games/<game>/`),
    declared in `src/games.rs`. It needs a `Game` with `load`, `update` and
-   `draw`, plus `leave` if anything loops, and `wants_escape` if the game
-   uses Escape itself. It also needs a free function `emblem` that draws the
+   `draw`, plus `leave` if anything loops, `wants_escape` if the game
+   uses Escape itself, and `back_spot` if its HUD holds the top-left corner
+   (the shell's back button sits there when the window has no letterbox bar
+   to put it in). It also needs a free function `emblem` that draws the
    game's card in the menu without loading anything.
 4. **Two match arms** in `src/games.rs`: one in `load`, one in `emblem`.
 5. **Docs**: `docs/<GAME>.md` (what it is, its rules and knobs, its

@@ -66,11 +66,16 @@ not. Both are split the same way, project first and prototype second.
 - `src/lib.rs` — the library root.
 - `src/shell.rs` — the menu's state: `GameId`, and where the pointer is.
   Unit-tested; adding a prototype starts with a variant here.
+- `src/shell/back.rs` — where the on-screen back button goes: in a
+  letterbox bar when there is room, else on the prototype's `back_spot`.
 - `src/shell/sfx.rs` — the menu's sounds (move, hover, bump, launch,
   back), synthesised in E major pentatonic with their gains, and tests that
   a player mashing the menu cannot clip.
 - `src/main.rs` — the shell's loop. Menu, or the running prototype.
-  Escape leaves a prototype without unloading it.
+  Escape, or the back button `src/back.rs` draws over every prototype,
+  leaves a prototype without unloading it. `?game=<slug>` on the web (via
+  `web/index.html` and quad-storage) or `--game <slug>` natively opens
+  straight into one.
 - `src/ui.rs` — the letterboxed 800x600 `Frame` and every drawing
   primitive, shared by the menu and the prototypes. Positions are pixels,
   sizes are frame units.
@@ -84,7 +89,8 @@ not. Both are split the same way, project first and prototype second.
   when the player escapes to the menu — Sand Nomad's wind and Space
   Trucking's ambient loops stop there, since nothing else would — and
   `wants_escape`, which lets a prototype keep Escape while it has something
-  of its own open; only Amoeba says yes) and the two matches that wire a
+  of its own open; only Amoeba says yes; and `back_spot`, where the back
+  button goes when it has to sit on the frame) and the two matches that wire a
   prototype in: `load` and `emblem`. The full checklist for a new one is
   `docs/NEW_GAME.md`.
 - `src/ui.rs` also has `Frame::image`, for a prototype that paints into its

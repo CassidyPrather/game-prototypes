@@ -1,5 +1,7 @@
 # Leitmotif
 
+Looking back on it: [the reflection](https://wirenook.net/blog/reflections/leitmotif/) on wirenook.net.
+
 A prototype for a game whose rules are set by its music. Which *motif* is
 playing decides how the world behaves; which *instruments* are sounding
 decides what in it moves. Everything you hear is doing something, and

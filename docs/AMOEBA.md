@@ -1,5 +1,7 @@
 # Amoeba Roguelike Remastered
 
+Looking back on it: [the reflection](https://wirenook.net/blog/reflections/amoeba/) on wirenook.net.
+
 Play as a giant, constantly evolving amoeba and fight off intensifying waves
 of humans trying to protect their cities. Engulf and digest them, craft new
 organelles and cores from their remains, and destroy the city gates to escape

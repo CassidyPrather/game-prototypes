@@ -4,13 +4,18 @@
 //! it can put there — the menu, each prototype — paints inside one
 //! letterboxed [`ui::Frame`], so a window of any size shows the same layout.
 //!
-//! Escape leaves a prototype for the menu without unloading it, so coming
-//! back is a pause rather than another wait on a sound bank. Starting a
-//! fresh run is the prototype's own business; Leitmotif does it with `R`.
+//! Escape, or the back button the shell draws over every prototype for
+//! screens without one, leaves a prototype for the menu without unloading
+//! it, so coming back is a pause rather than another wait on a sound bank.
+//! Starting a fresh run is the prototype's own business; Leitmotif does it
+//! with `R`.
 //!
-//! One command-line mode skips the menu: `--replay <file>` plays a Space
-//! Trucking flight-recorder tape back (see `docs/SPACE_TRUCKING.md`). The
-//! web has no arguments, so it never triggers there.
+//! `--game <slug>` (natively) or `?game=<slug>` (on the web) opens straight
+//! into one prototype, with the menu a back press away; wirenook.net embeds
+//! the games that way. One more command-line mode skips the menu
+//! altogether: `--replay <file>` plays a Space Trucking flight-recorder tape
+//! back (see `docs/SPACE_TRUCKING.md`). The web has no arguments, so it
+//! never triggers there.
 //!
 //! Going in and out is one continuous motion: the menu closes an iris of
 //! night on the chosen window, the prototype loads behind it, and the iris
@@ -22,6 +27,7 @@
 // `macroquad::main` expansion where a narrower allow cannot reach.
 #![allow(clippy::future_not_send)]
 
+mod back;
 mod games;
 mod menu;
 mod sounds;
@@ -36,6 +42,7 @@ use macroquad::window::{Conf, clear_background, next_frame, screen_height, scree
 use game_prototypes::shell::sfx::Sfx;
 use game_prototypes::shell::{GameId, Menu};
 
+use crate::back::BackButton;
 use crate::games::Game;
 use crate::sounds::Sounds;
 use crate::ui::{FRAME_H, FRAME_W, Frame};
@@ -45,6 +52,21 @@ const LETTERBOX: Color = Color::new(0.0, 0.0, 0.0, 1.0);
 
 /// The menu's typeface, wirenook's body face. See `CREDITS.md`.
 const FONT: &[u8] = include_bytes!("../assets/fonts/AtkinsonHyperlegible-Bold.ttf");
+
+/// The localStorage key `web/index.html` copies a `?game=` query into, for
+/// the wasm to read through quad-storage, which is the one road from the
+/// page into the game that needs no `unsafe`.
+#[cfg(target_arch = "wasm32")]
+const OPEN_KEY: &str = "game-prototypes/open";
+
+/// The prototype the player asked to open straight into, if any.
+fn requested_game() -> Option<GameId> {
+    #[cfg(target_arch = "wasm32")]
+    let slug = quad_storage::STORAGE.lock().ok()?.get(OPEN_KEY);
+    #[cfg(not(target_arch = "wasm32"))]
+    let slug = std::env::args().skip_while(|arg| arg != "--game").nth(1);
+    GameId::from_slug(&slug?)
+}
 
 fn window_conf() -> Conf {
     Conf {
@@ -78,6 +100,14 @@ async fn main() {
     let mut playing = false;
     // Seconds since a prototype came on screen, while its iris is opening.
     let mut revealing: Option<f32> = None;
+    let mut back = BackButton::default();
+
+    if let Some(id) = requested_game() {
+        menu.point_to(id);
+        running = Some((id, games::load(id).await));
+        playing = true;
+        revealing = Some(0.0);
+    }
 
     loop {
         let dt = get_frame_time();
@@ -85,11 +115,14 @@ async fn main() {
         clear_background(LETTERBOX);
 
         // Leaving is checked before ticking, so the frame a player presses
-        // Escape on is the last one the prototype sees.
+        // Escape or the back button on is the last one the prototype sees,
+        // and the press that left never lands on the game underneath.
         let escape_is_ours = running
             .as_ref()
             .is_none_or(|(_, game)| !game.wants_escape());
-        if playing && escape_is_ours && is_key_pressed(KeyCode::Escape) {
+        let back_spot = running.as_ref().map(|(_, game)| game.back_spot());
+        let back_pressed = back_spot.is_some_and(|spot| BackButton::pressed(&frame, spot));
+        if playing && (back_pressed || escape_is_ours && is_key_pressed(KeyCode::Escape)) {
             playing = false;
             revealing = None;
             if let Some((_, game)) = running.as_mut() {
@@ -104,6 +137,8 @@ async fn main() {
             if let Some((_, game)) = running.as_mut() {
                 game.update(dt);
                 game.draw(&frame);
+                back.tick(dt);
+                back.draw(&frame, game.back_spot());
             }
             if let Some(age) = revealing.as_mut() {
                 menu::reveal(&frame, *age);
@@ -123,6 +158,7 @@ async fn main() {
             }
             playing = true;
             revealing = Some(0.0);
+            back.reset();
         }
 
         next_frame().await;

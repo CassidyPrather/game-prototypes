@@ -29,10 +29,21 @@ without reading; the name is there so a shelf of them stays usable.
 | Enter, or click the centre window | Start that prototype |
 | Click a window peeking in at the side | Bring it to the centre |
 | Escape | Leave a prototype for the menu (Amoeba first spends it closing its own panels) |
+| The back arrow in a corner, tapped or clicked | Leave a prototype for the menu, on a screen with no Escape key |
 
 Moving, hovering, hitting the end of the shelf, starting and leaving each
 have a short synthesised sound and a bit of motion; starting closes an iris
 on the chosen window and opens it again on the prototype.
+
+The back arrow is drawn over every prototype, for phones. It sits in the
+letterbox bar beside the frame when the window leaves room for one, which a
+phone nearly always does, and otherwise on a corner the prototype keeps
+clear.
+
+Open the page with `?game=<slug>` (the slugs are in the table under
+[Reflections](#reflections)), or run the binary with `--game <slug>`, and it
+starts straight into that prototype, with the menu a back press away.
+wirenook.net embeds each game in its reflection this way.
 
 Leaving a prototype does not unload it, so coming back is a pause rather
 than another wait on its sound bank. Starting a fresh run is the
@@ -96,13 +107,15 @@ tagged so it also appears at
 
 | Game | Slug | Reflection |
 | --- | --- | --- |
-| Leitmotif | `leitmotif` | not yet written |
-| Sand Nomad | `sand-nomad` | not yet written |
-| Space Trucking | `space-trucking` | not yet written |
-| Kitchen Garden | `kitchen-garden` | not yet written |
-| Amoeba Roguelike Remastered | `amoeba` | not yet written |
+| Leitmotif | `leitmotif` | [Leitmotif](https://wirenook.net/blog/reflections/leitmotif/) |
+| Sand Nomad | `sand-nomad` | [Sand Nomad](https://wirenook.net/blog/reflections/sand-nomad/) |
+| Space Trucking | `space-trucking` | [Space Trucking](https://wirenook.net/blog/reflections/space-trucking/) |
+| Kitchen Garden | `kitchen-garden` | [Kitchen Garden](https://wirenook.net/blog/reflections/kitchen-garden/) |
+| Amoeba Roguelike Remastered | `amoeba` | [AmoebaRL](https://wirenook.net/blog/reflections/amoeba/) |
 
-When one is published, link it here and at the top of the game's doc.
+The slug is also the game's `GameId::slug` in `src/shell.rs`, which is what
+`?game=` reads. When a new one is published, link it here and at the top of
+the game's doc.
 
 ## How it is built
 

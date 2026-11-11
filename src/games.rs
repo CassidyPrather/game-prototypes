@@ -10,7 +10,7 @@ pub mod leitmotif;
 pub mod sand_nomad;
 pub mod space_trucking;
 
-use game_prototypes::shell::GameId;
+use game_prototypes::shell::{GameId, back};
 
 use crate::ui::{Frame, MqVec2};
 
@@ -39,6 +39,14 @@ pub trait Game {
     /// only while that something is open.
     fn wants_escape(&self) -> bool {
         false
+    }
+
+    /// Where the shell's back button sits when the window is too close to
+    /// 4:3 to leave it a letterbox bar: the frame position of its centre,
+    /// for a button up to [`back::ON_FRAME_SIDE`] across. The top-left
+    /// corner, unless the prototype keeps something of its own there.
+    fn back_spot(&self) -> MqVec2 {
+        MqVec2::from(back::DEFAULT_SPOT)
     }
 }
 

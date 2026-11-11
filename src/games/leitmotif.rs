@@ -100,6 +100,12 @@ impl crate::games::Game for Game {
         let view = View::new(*frame, self.camera.pos);
         draw(&self.sim, &view, &self.audio, &self.hud, self.clock);
     }
+
+    /// Hearts and the speaker hold the top-left corner, so the back button
+    /// stands just past the last heart.
+    fn back_spot(&self) -> MqVec2 {
+        MqVec2::new(140.0, 30.0)
+    }
 }
 
 /// Wall-clock seed. Swap in `quad-url`/// Wall-clock seed. Swap in `quad-url` here if you want seeds that survive in

@@ -1,5 +1,7 @@
 # Space Trucking
 
+Looking back on it: [the reflection](https://wirenook.net/blog/reflections/space-trucking/) on wirenook.net.
+
 An ambient game about hauling cargo across the solar system, built to be
 played in the background: launch, let the ship fly while you do something
 else, come back to barter.

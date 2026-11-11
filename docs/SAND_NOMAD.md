@@ -1,5 +1,7 @@
 # Sand Nomad
 
+Looking back on it: [the reflection](https://wirenook.net/blog/reflections/sand-nomad/) on wirenook.net.
+
 A trading circuit of a dry ocean, where everything you grow attached to
 weighs on you.
 

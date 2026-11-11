@@ -1,5 +1,7 @@
 # Kitchen Garden
 
+Looking back on it: [the reflection](https://wirenook.net/blog/reflections/kitchen-garden/) on wirenook.net.
+
 One day of cooking from a garden, for whoever comes to the hatch.
 
 Pick it from the [main menu](../README.md); `Escape` goes back there.

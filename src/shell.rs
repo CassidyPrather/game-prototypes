@@ -3,8 +3,10 @@
 //! Pure and macroquad-free, like every simulation here, so the part of the
 //! menu that can be wrong is unit-tested and the part that only draws is
 //! not. The binary's `menu` module renders whatever this says, and plays
-//! the [`sfx`] this module synthesises.
+//! the [`sfx`] this module synthesises. [`back`] places the on-screen
+//! button that leaves a prototype.
 
+pub mod back;
 pub mod sfx;
 
 /// One prototype in the collection.
@@ -46,6 +48,26 @@ impl GameId {
             Self::KitchenGarden => "Kitchen Garden",
             Self::Amoeba => "Amoeba",
         }
+    }
+
+    /// The prototype's name in a URL. `?game=<slug>` on the web build opens
+    /// straight into it, and wirenook.net files each game's reflection under
+    /// the same slug, so these never change once published.
+    #[must_use]
+    pub const fn slug(self) -> &'static str {
+        match self {
+            Self::Leitmotif => "leitmotif",
+            Self::SandNomad => "sand-nomad",
+            Self::SpaceTrucking => "space-trucking",
+            Self::KitchenGarden => "kitchen-garden",
+            Self::Amoeba => "amoeba",
+        }
+    }
+
+    /// The prototype a [`slug`](Self::slug) names, if any.
+    #[must_use]
+    pub fn from_slug(slug: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|id| id.slug() == slug.trim())
     }
 }
 
@@ -95,6 +117,13 @@ impl Menu {
         // of the list instead of landing on a negative index.
         let len = Self::len() as i32;
         self.index = (self.index as i32 + delta).rem_euclid(len) as usize;
+    }
+
+    /// Point at `id`.
+    pub fn point_to(&mut self, id: GameId) {
+        if let Some(index) = GameId::ALL.iter().position(|&each| each == id) {
+            self.index = index;
+        }
     }
 
     /// Point at `index`, ignoring one that is past the end. The renderer
@@ -167,5 +196,29 @@ mod tests {
             menu.move_by(1);
         }
         assert_eq!(seen, GameId::ALL, "the menu does not visit every entry");
+    }
+
+    #[test]
+    fn every_slug_names_its_own_prototype() {
+        for id in GameId::ALL {
+            assert_eq!(GameId::from_slug(id.slug()), Some(id));
+            let mut menu = Menu::new();
+            menu.point_to(id);
+            assert_eq!(menu.selected(), id);
+        }
+        assert_eq!(GameId::from_slug(""), None);
+        assert_eq!(GameId::from_slug("Leitmotif"), None, "slugs are lowercase");
+    }
+
+    #[test]
+    fn slugs_are_url_safe() {
+        for id in GameId::ALL {
+            assert!(
+                id.slug()
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c == '-'),
+                "{id:?}'s slug needs escaping"
+            );
+        }
     }
 }

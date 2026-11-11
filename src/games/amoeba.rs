@@ -243,6 +243,14 @@ impl crate::games::Game for Game {
         self.settings.is_open()
             || (self.sim.phase() == Phase::Playing && self.sim.mode() != UiMode::Messages)
     }
+
+    /// The map runs up into the top-left corner, and the side panel's
+    /// top-right corner is the one its left-aligned text never reaches. In
+    /// frame units like any other spot: the shell only asks when the window
+    /// is close enough to 4:3 that the frame is the window.
+    fn back_spot(&self) -> MqVec2 {
+        MqVec2::new(crate::ui::FRAME_W - 30.0, 30.0)
+    }
 }
 
 /// The menu's picture of the game: a blob of slime cells, breathing, with a
