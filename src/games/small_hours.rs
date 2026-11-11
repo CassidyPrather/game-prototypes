@@ -57,6 +57,19 @@ mod layout {
     pub const PIP_GAP: f32 = 21.0;
     pub const LANTERN_X: f32 = 36.0;
     pub const LANTERN_GAP: f32 = 28.0;
+    /// The mute toggle, top right, beside where the shell's back button
+    /// goes (the night pips hold the top-left corner).
+    pub const SPEAKER: Vec2 = vec2(722.0, 30.0);
+    /// The square around [`SPEAKER`] that takes a press.
+    pub const SPEAKER_HIT: f32 = 36.0;
+    /// The shell's back button, when it has to sit on the frame.
+    pub const BACK: Vec2 = vec2(770.0, 30.0);
+    /// The caps take a press anywhere below this and right of
+    /// [`CAPS_LEFT`], each owning the strip nearest it, so a thumb on a
+    /// phone, where a cap is a few millimetres across, need not land on
+    /// one. The strip runs on into the letterbox below the frame.
+    pub const CAPS_TOP: f32 = 524.0;
+    pub const CAPS_LEFT: f32 = 540.0;
 
     /// The side of one cell.
     pub fn cell(ground: &Ground) -> f32 {
@@ -92,6 +105,31 @@ mod layout {
 
     pub fn within(p: Vec2, centre: Vec2, size: Vec2) -> bool {
         (p.x - centre.x).abs() <= size.x * 0.5 && (p.y - centre.y).abs() <= size.y * 0.5
+    }
+
+    /// One of the caps along the bottom.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum Cap {
+        Undo,
+        Restart,
+        Wait,
+        Enter,
+    }
+
+    /// The cap whose strip `p` is in, if any: see [`CAPS_TOP`].
+    pub fn cap_at(p: Vec2) -> Option<Cap> {
+        if p.y < CAPS_TOP || p.x < CAPS_LEFT {
+            return None;
+        }
+        [
+            (Cap::Undo, UNDO.x),
+            (Cap::Restart, RESTART.x),
+            (Cap::Wait, WAIT.x),
+            (Cap::Enter, ENTER.x),
+        ]
+        .into_iter()
+        .min_by(|a, b| (a.1 - p.x).abs().total_cmp(&(b.1 - p.x).abs()))
+        .map(|(cap, _)| cap)
     }
 }
 
@@ -331,6 +369,7 @@ impl Game {
         }
         press.undo = key(&[KeyCode::Z, KeyCode::Backspace, KeyCode::U]);
         press.restart = key(&[KeyCode::R]);
+        let mut mute = key(&[KeyCode::M]);
         press.enter = key(&[KeyCode::Enter, KeyCode::KpEnter]);
         press.night = DIGITS
             .iter()
@@ -343,15 +382,15 @@ impl Game {
         let ground = self.watch.ground();
         self.hover = layout::cell_at(ground, pointer);
         if is_mouse_button_pressed(MouseButton::Left) {
-            let cap = Vec2::splat(layout::CAP + 8.0);
-            if layout::within(pointer, layout::UNDO, cap) {
-                press.undo = true;
-            } else if layout::within(pointer, layout::RESTART, cap) {
-                press.restart = true;
-            } else if layout::within(pointer, layout::WAIT, vec2(layout::WAIT_W + 8.0, cap.y)) {
-                press.step = Some(Step::Wait);
-            } else if layout::within(pointer, layout::ENTER, vec2(layout::ENTER_W + 8.0, cap.y)) {
-                press.enter = true;
+            if let Some(cap) = layout::cap_at(pointer) {
+                match cap {
+                    layout::Cap::Undo => press.undo = true,
+                    layout::Cap::Restart => press.restart = true,
+                    layout::Cap::Wait => press.step = Some(Step::Wait),
+                    layout::Cap::Enter => press.enter = true,
+                }
+            } else if layout::within(pointer, layout::SPEAKER, Vec2::splat(layout::SPEAKER_HIT)) {
+                mute = true;
             } else if let Some(night) = (0..NIGHTS.len())
                 .find(|&night| layout::within(pointer, layout::pip(night), Vec2::splat(20.0)))
             {
@@ -377,6 +416,12 @@ impl Game {
                     press.enter = true;
                 }
             }
+        }
+        if mute {
+            // Mute is a press like any other, so it is also the gesture
+            // that lets the browser play sound at all.
+            self.audio.wake();
+            self.audio.toggle_mute();
         }
         press
     }
@@ -487,9 +532,6 @@ impl crate::games::Game for Game {
     fn update(&mut self, dt: f32) {
         self.clock += dt;
         self.since += dt;
-        if is_key_pressed(KeyCode::M) {
-            self.audio.toggle_mute();
-        }
         let press = self.read_press();
         if press.any() {
             self.audio.wake();
@@ -521,10 +563,53 @@ impl crate::games::Game for Game {
         self.audio.hush();
         self.sleeping = false;
     }
+
+    /// The night pips hold the top-left corner.
+    fn back_spot(&self) -> MqVec2 {
+        layout::BACK
+    }
 }
 
 /// The mark the menu shows for this prototype: the hearth, one keeper
 /// beside it, and something with eyes at the edge of the light.
 pub fn emblem(frame: &Frame, centre: MqVec2, width: f32, clock: f32) {
     draw::emblem(frame, centre, width, clock);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::layout::{self, Cap, cap_at};
+    use macroquad::math::vec2;
+
+    #[test]
+    fn every_cap_owns_the_strip_around_it() {
+        for (cap, at) in [
+            (Cap::Undo, layout::UNDO),
+            (Cap::Restart, layout::RESTART),
+            (Cap::Wait, layout::WAIT),
+            (Cap::Enter, layout::ENTER),
+        ] {
+            assert_eq!(cap_at(at), Some(cap), "{cap:?} on itself");
+            // Above the icon, and far down in a phone's letterbox.
+            assert_eq!(cap_at(vec2(at.x, layout::CAPS_TOP)), Some(cap));
+            assert_eq!(cap_at(vec2(at.x, 1200.0)), Some(cap));
+        }
+        // Past the right edge of the frame is still the last cap.
+        assert_eq!(cap_at(vec2(900.0, layout::CAPS_Y)), Some(Cap::Enter));
+    }
+
+    #[test]
+    fn the_strip_leaves_the_board_and_the_lanterns_alone() {
+        assert_eq!(cap_at(vec2(400.0, layout::BOARD.y)), None);
+        assert_eq!(cap_at(vec2(layout::LANTERN_X, layout::CAPS_Y)), None);
+        assert_eq!(cap_at(vec2(layout::UNDO.x, layout::CAPS_TOP - 1.0)), None);
+    }
+
+    #[test]
+    fn the_back_button_and_the_speaker_keep_apart() {
+        let back = game_prototypes::shell::back::ON_FRAME_SIDE.1 * 0.5;
+        let speaker = layout::SPEAKER_HIT * 0.5;
+        let gap = (layout::BACK.x - back) - (layout::SPEAKER.x + speaker);
+        assert!(gap >= 0.0, "they overlap by {}", -gap);
+    }
 }

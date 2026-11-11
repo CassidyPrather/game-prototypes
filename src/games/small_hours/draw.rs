@@ -1007,11 +1007,25 @@ fn caps(pen: &Pen, game: &Game, dawn: f32, kept: bool) {
     let p = icon(layout::ENTER);
     pen.chevron(p - vec2(5.0, 0.0), vec2(1.0, 0.0), 4.5, colour);
     pen.chevron(p + vec2(4.0, 0.0), vec2(1.0, 0.0), 4.5, colour);
-    if game.audio.is_muted() {
-        // A struck-through note of sorts: a dot with a bar across it.
-        let p = vec2(770.0, 30.0);
-        pen.circle(p, 5.0, quiet);
-        pen.line(p - vec2(9.0, 9.0), p + vec2(9.0, 9.0), 2.0, quiet);
+    speaker(pen, game.audio.is_muted(), quiet);
+}
+
+/// The mute toggle: a speaker, with its sound or struck through.
+fn speaker(pen: &Pen, muted: bool, colour: Color) {
+    let p = layout::SPEAKER;
+    pen.rect(p - vec2(6.0, 0.0), vec2(5.0, 7.0), colour);
+    pen.tri(
+        p - vec2(6.0, 0.0),
+        p + vec2(1.0, -8.0),
+        p + vec2(1.0, 8.0),
+        colour,
+    );
+    if muted {
+        pen.line(p + vec2(4.0, -4.0), p + vec2(11.0, 4.0), 2.0, colour);
+        pen.line(p + vec2(4.0, 4.0), p + vec2(11.0, -4.0), 2.0, colour);
+    } else {
+        pen.line(p + vec2(5.0, -3.0), p + vec2(5.0, 3.0), 2.0, colour);
+        pen.line(p + vec2(9.0, -6.0), p + vec2(9.0, 6.0), 2.0, colour);
     }
 }
 

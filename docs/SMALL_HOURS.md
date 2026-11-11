@@ -73,7 +73,9 @@ remembered keeper shows the step it is about to take (a dot for a wait).
 
 Along the top, a moon crosses a ruler of hours toward the sun, and the
 pips on the left are the nights, with the most marks each has earned.
-Bottom left are the keepers as lanterns: lit, out, or not yet woken.
+Bottom left are the keepers as lanterns: lit, out, or not yet woken. Top
+right is the speaker, struck through when muted, and beside it the shell's
+back arrow when the window has no letterbox bar to put it in.
 
 | Key | Action |
 | --- | --- |
@@ -85,8 +87,11 @@ Bottom left are the keepers as lanterns: lit, out, or not yet woken.
 | 1–8 | Go to that night |
 | M | Mute |
 
-With a pointer: click a square to step toward it, click yourself to wait,
-and click the key caps or the night pips.
+With a pointer or a finger: tap a square to step toward it, tap yourself to
+wait, and tap the key caps, the night pips or the speaker. On a phone the
+caps are a few millimetres across, so each one takes any tap in the strip
+around it, from just above its drawing down into the letterbox below the
+board. The back arrow leaves for the menu, as Escape does.
 
 ## The nights
 
