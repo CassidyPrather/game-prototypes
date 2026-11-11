@@ -4,6 +4,7 @@
 //! library's [`GameId`] is the list; these two matches are where a new one
 //! gets wired in.
 
+pub mod amoeba;
 pub mod kitchen_garden;
 pub mod leitmotif;
 pub mod sand_nomad;
@@ -30,6 +31,15 @@ pub trait Game {
     /// calls it: this is the moment to stop anything that would otherwise
     /// go on sounding. Most have nothing to do.
     fn leave(&mut self) {}
+
+    /// Whether Escape belongs to the prototype this frame rather than to the
+    /// shell. Asked before every update; while it says yes, Escape is passed
+    /// through to the prototype's own input and does not leave for the menu.
+    /// For a prototype that uses Escape to close something of its own, and
+    /// only while that something is open.
+    fn wants_escape(&self) -> bool {
+        false
+    }
 }
 
 /// Start a prototype.
@@ -43,6 +53,7 @@ pub async fn load(id: GameId) -> Box<dyn Game> {
         GameId::SandNomad => Box::new(sand_nomad::Game::load().await),
         GameId::SpaceTrucking => Box::new(space_trucking::Game::load().await),
         GameId::KitchenGarden => Box::new(kitchen_garden::Game::load().await),
+        GameId::Amoeba => Box::new(amoeba::Game::load().await),
     }
 }
 
@@ -55,5 +66,6 @@ pub fn emblem(id: GameId, frame: &Frame, centre: MqVec2, width: f32, clock: f32)
         GameId::SandNomad => sand_nomad::emblem(frame, centre, width, clock),
         GameId::SpaceTrucking => space_trucking::emblem(frame, centre, width, clock),
         GameId::KitchenGarden => kitchen_garden::emblem(frame, centre, width, clock),
+        GameId::Amoeba => amoeba::emblem(frame, centre, width, clock),
     }
 }

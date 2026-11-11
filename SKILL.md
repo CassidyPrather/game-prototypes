@@ -8,9 +8,11 @@ description: Cassidy's small game prototypes behind one menu — Rust + macroqua
 A collection of small game prototypes behind a main menu. Rust + macroquad,
 compiled to wasm, shipped as a static page. Native desktop builds also work.
 Crate `game-prototypes`, lib `game_prototypes`, bin `game-prototypes`.
-Built on Cassidy's game-template. Code is AGPL-3.0-or-later.
+Code is AGPL-3.0-or-later. This repo replaced Cassidy's old game-template:
+new small games move in here, and new big games start from a gutted copy
+(`docs/NEW_GAME.md`).
 
-There are four prototypes. **Leitmotif**: a journey home whose rules are
+There are five prototypes. **Leitmotif**: a journey home whose rules are
 set by its music — the current motif decides how the world behaves, each
 voice in the band drives a hazard, and holding the music holds everything it
 drives. **Sand Nomad**: a hand-made trading circuit of a dry ocean where
@@ -24,8 +26,37 @@ real time while you are away. **Kitchen Garden**: one day of cooking from a gard
 for whoever comes to the hatch — the demo of **the cooking module**
 (`src/cooking/`), a std-only, copy-pasteable set of foods, processes (physical,
 heat, time), recipes and a station state machine, meant to be lifted whole
-into other games. None has any text, only icons and key caps (the
-menu names its cards, and Space Trucking prints a version string in a corner).
+into other games. **Amoeba Roguelike Remastered**: a remaster of Cassidy's
+2021 7DRL entry — you are the amoeba, engulfing a city's defenders, growing
+organelles from them, and breaking gates to escape; turn-based, CP437, phone
+friendly. None but Amoeba has any text, only icons and key caps (the menu
+names its cards, and Space Trucking prints a version string in a corner);
+Amoeba is a roguelike, and its message log is the game.
+
+## Taste: read wirenook.net
+
+Cassidy's opinions are written down at https://wirenook.net, and that is
+the source of truth for what these games should be like — not guesses from
+this code, and not generic genre wisdom. Hundreds of reviews (games, board
+games, books, visual novels), essays, and a style guide. Before settling a
+question of taste — what would be fun, what would feel cheap, what it should
+look like — read there, and cite the post you are leaning on.
+
+- https://wirenook.net/llms.txt — the map, written for agents.
+- https://wirenook.net/blog/index.json — every post's full text in one
+  request. Reviews are gathered at https://wirenook.net/blog/tags/review/.
+- For game design specifically: "Agency vs. Replayability" and "Rapid
+  prototyping is cool" on the blog.
+- https://wirenook.net/style/ — the visual style the menu wears.
+- Or the site's source: CassidyPrather/cassidyprather.github.io,
+  `content/blog/` (Markdown).
+
+Each game also gets a **reflection** — a wirenook.net blog post on what it
+was trying to do and what came of it, at
+`https://wirenook.net/blog/reflections/<slug>/`. The website owns them; this
+repo only links (the README's Reflections table). Once a game's reflection
+exists, it is the best statement of that game's intent: read it before
+changing the game's direction.
 
 ## Repo Map
 
@@ -49,9 +80,13 @@ not. Both are split the same way, project first and prototype second.
   timers eased toward what `shell::Menu` says.
 - `src/sounds.rs` — bakes `shell::sfx` and plays it once the player has
   pressed something (see the autoplay rule below).
-- `src/games.rs` — the `Game` trait (`update`, `draw`, and `leave`, called
-  when the player escapes to the menu; Sand Nomad's wind and Space
-  Trucking's ambient loops stop there, since nothing else would) and the two matches that wire a prototype in: `load` and `emblem`.
+- `src/games.rs` — the `Game` trait (`update`, `draw`, `leave`, called
+  when the player escapes to the menu — Sand Nomad's wind and Space
+  Trucking's ambient loops stop there, since nothing else would — and
+  `wants_escape`, which lets a prototype keep Escape while it has something
+  of its own open; only Amoeba says yes) and the two matches that wire a
+  prototype in: `load` and `emblem`. The full checklist for a new one is
+  `docs/NEW_GAME.md`.
 - `src/ui.rs` also has `Frame::image`, for a prototype that paints into its
   own low-resolution texture and hands it to the frame whole.
 
@@ -203,6 +238,36 @@ extend): `docs/COOKING.md`. The demo's rules and knobs:
   `Food`/`Process`/`Kind`, `draw.rs` the scene, `fx.rs` cosmetic particles,
   `audio.rs` the bank and loops.
 
+### Amoeba
+
+Overview, history, and what changed in the move: `docs/AMOEBA.md`. The spec
+the remaster was built from: `docs/amoeba/PORT_SPEC.md`; departures from it
+are marked `DELIBERATE CHANGE` in the code. It arrived from its own
+repository (CassidyPrather/amoeba_rl) whole and keeps the conventions it grew
+there.
+
+- `src/amoeba/sim.rs` and `src/amoeba/sim/` — the whole game. Pure,
+  deterministic, turn-based: one `Command` per `advance`, and `view()`
+  resolves a `RenderView` down to a glyph and two colours per cell. `actors`,
+  `ai`, `combat`, `organelles`, `player`, `schedule` (who acts when),
+  `mapgen/` (the classic cavern and the warren), `effect` (ordered news for
+  the animations), `log`. The ignored whole-playthrough bots in `sim.rs` are
+  the balance check.
+- `src/amoeba/synth.rs` — every sound, as WAV bytes.
+- `src/games/amoeba.rs` — the old standalone loop as a `Game`, and the
+  emblem. Draws across the **whole window**, not the shared `Frame`: the
+  layout fits portrait phones and grows an on-screen pad for thumbs, and a
+  letterbox would undo that. `wants_escape` is true while the examine cursor,
+  the organelle list or the settings panel is out, since Escape is the
+  game's own back key.
+  - `render.rs` (layout and drawing), `hud.rs` (sidebar, status, log),
+    `anim.rs` (effects as overlays; the one place besides audio that reads a
+    clock), `input.rs` (keys, mouse, touch and the pad into `Command`s),
+    `settings.rs` (the player's own toggles), `audio.rs`, `tileset.rs` (the
+    CP437 atlas in `assets/amoeba/`).
+- An animation never stands between a keypress and a turn: a command
+  arriving mid-animation cuts it short and runs next frame.
+
 ## Commands
 
 ```bash
@@ -224,7 +289,10 @@ cargo bench --bench space_trucking_bench -- --quick           # ...and Space Tru
 cargo test --release --test space_trucking_perf -- --ignored  # Space Trucking's perf budgets
 cargo run --example space_trucking_convoy                      # six-client lockstep convoy
 cargo run -- --replay <tape>                                  # play a Space Trucking black box
+cargo test --release --lib amoeba -- --ignored                # Amoeba's whole-playthrough bots
+cargo bench --bench amoeba_bench -- --quick                   # ...and Amoeba's bench
 cargo audit                                                   # audit
+./scripts/cloud-setup.sh                                      # provision a fresh machine (docs/CLOUD_SETUP.md)
 ```
 
 The web build needs `rustup target add wasm32-unknown-unknown`, and uses
@@ -290,8 +358,10 @@ Logic you want tested must live macroquad-free like `sim`, `song` and
 Every asset gets a `CREDITS.md` line at intake — source, author, license, URL.
 CC0 first.
 
-CI enforces a hard wasm size budget (`MAX_WASM_BYTES`, ~1.5 MB by default);
-if a change blows it, shrink the change or retune the budget deliberately.
+CI enforces a hard wasm size budget (`MAX_WASM_BYTES`, 2.25 MB since Amoeba
+moved in; every prototype ships in the one bundle); if a change blows it,
+shrink the change or retune the budget deliberately, with a comment saying
+why.
 
 Audio is on: macroquad's `audio` feature plus quad-snd's `audio.js` plugin in
 `web/`, which must load after `gl.js` and before `load()` runs. Sounds are
@@ -301,14 +371,15 @@ control, so every pitch an instrument plays is its own baked buffer;
 `mix::all_voices` is the list, built from the song. Add a note to a score
 and it bakes automatically; the tests check that nothing plays unbaked.
 
-No text on screen. If the HUD needs to say something, say it with a shape
+No text on screen (Amoeba excepted, see above). If the HUD needs to say something, say it with a shape
 the world already uses, a colour, or a key cap with one character on it.
 Sand Nomad keeps to this with runes, emotes, tally marks and a burden jar. The
 menu bends this once, for the names on its cards, because a shelf of unnamed
 pictures stops being a menu; everything else there is drawn.
 
 Drawing goes through `ui::Frame`, never straight to macroquad, so every
-prototype letterboxes the same way. A prototype that needs a camera wraps a
+prototype letterboxes the same way. Amoeba is the exception, for its phone
+layout; do not make it the precedent. A prototype that needs a camera wraps a
 `Frame` rather than replacing it, as `games::leitmotif`'s `View` does.
 
 Browsers keep the audio context suspended until a real gesture. `audio.js`

@@ -18,7 +18,10 @@
 //!   system: foods, processes, recipes and a station state machine.
 //! - [`kitchen_garden`] is its demo: a day of cooking from a garden for
 //!   whoever comes to the hatch.
+//! - [`amoeba`] is Amoeba Roguelike Remastered, a turn-based roguelike in
+//!   which you are the monster: a giant amoeba eating its way out of a city.
 
+pub mod amoeba;
 pub mod cooking;
 pub mod kitchen_garden;
 pub mod leitmotif;

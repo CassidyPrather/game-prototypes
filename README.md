@@ -2,8 +2,12 @@
 
 Cassidy's small game prototypes, behind one menu. Rust +
 [macroquad](https://macroquad.rs/), compiled to wasm and deployed as a
-static page. Native desktop builds work too. Built on Cassidy's
-[game-template](https://github.com/CassidyPrather/game-template).
+static page, playable at <https://wirenook.net/game-prototypes/>. Native
+desktop builds work too.
+
+This is also where Cassidy's new games start: a small one moves in here as
+another prototype, and a big one starts as its own repository from a copy of
+this one. [docs/NEW_GAME.md](docs/NEW_GAME.md) covers both.
 
 Every prototype here keeps the same split: the simulation is a pure,
 deterministic library that never mentions macroquad, so the interesting
@@ -24,7 +28,7 @@ without reading; the name is there so a shelf of them stays usable.
 | Arrows, WASD, mouse wheel | Move along the carousel |
 | Enter, or click the centre window | Start that prototype |
 | Click a window peeking in at the side | Bring it to the centre |
-| Escape | Leave a prototype for the menu |
+| Escape | Leave a prototype for the menu (Amoeba first spends it closing its own panels) |
 
 Moving, hovering, hitting the end of the shelf, starting and leaving each
 have a short synthesised sound and a bit of motion; starting closes an iris
@@ -53,6 +57,52 @@ prototype's own business; Leitmotif does it with `R`.
   of **[the cooking module](docs/COOKING.md)**, a std-only, copy-pasteable
   set of foods, processes, recipes and a cooking state machine, meant to be
   lifted into other games.
+- **[Amoeba Roguelike Remastered](docs/AMOEBA.md)** — play as a giant,
+  constantly evolving amoeba: engulf the humans defending their cities, grow
+  organelles from their remains, and break the gates to escape. A Rust
+  remaster of a 2021 7DRL entry, and the one prototype that is all text.
+
+## Taste
+
+Cassidy writes their opinions down at **[wirenook.net](https://wirenook.net/)**,
+and that is the reference for what these games should be like. It covers
+hundreds of reviews of games, board games, books and visual novels, essays
+on design, and a style guide. When a question comes down to taste (what
+would be fun, what would feel cheap, what it should look like), read there
+before guessing, and say which post you leaned on.
+
+- [wirenook.net/llms.txt](https://wirenook.net/llms.txt): the map, written
+  for agents.
+- [Reviews](https://wirenook.net/blog/tags/review/), mirrored from Steam,
+  Goodreads and VNDB, plus board games.
+- [The blog](https://wirenook.net/blog/), and every post's full text as JSON
+  at [/blog/index.json](https://wirenook.net/blog/index.json). For game
+  design, start with "Agency vs. Replayability" and "Rapid prototyping is
+  cool".
+- [The style guide](https://wirenook.net/style/), which the menu here is
+  dressed in.
+- The site's source,
+  [CassidyPrather/cassidyprather.github.io](https://github.com/CassidyPrather/cassidyprather.github.io):
+  every post is Markdown under `content/blog/`.
+
+## Reflections
+
+Every game here gets a **reflection**: a post on wirenook.net about what it
+was trying to do and what came of it. The website is the source of truth.
+This repository only links to reflections and never keeps copies. A game's
+reflection lives at `https://wirenook.net/blog/reflections/<slug>/` and is
+tagged so it also appears at
+[/blog/tags/reflection/](https://wirenook.net/blog/tags/reflection/).
+
+| Game | Slug | Reflection |
+| --- | --- | --- |
+| Leitmotif | `leitmotif` | not yet written |
+| Sand Nomad | `sand-nomad` | not yet written |
+| Space Trucking | `space-trucking` | not yet written |
+| Kitchen Garden | `kitchen-garden` | not yet written |
+| Amoeba Roguelike Remastered | `amoeba` | not yet written |
+
+When one is published, link it here and at the top of the game's doc.
 
 ## How it is built
 
@@ -66,6 +116,8 @@ prototype's own business; Leitmotif does it with `R`.
   - `src/cooking/` — the reusable cooking module: foods, processes,
     recipes, stations, bills. Std only; copy it out whole.
   - `src/kitchen_garden/` — the cooking demo's day, prices and sounds.
+  - `src/amoeba/` — Amoeba's whole game, turn-based, resolved down to a
+    glyph per cell, and its synthesis.
 - `src/main.rs` — the shell's loop: the menu, or whichever prototype is
   running.
   - `src/ui.rs` — the letterboxed 800x600 frame and the drawing primitives
@@ -81,10 +133,14 @@ prototype's own business; Leitmotif does it with `R`.
     the save slot and the flight recorder.
   - `src/games/kitchen_garden.rs` — and Kitchen Garden's, drawn in soft
     vector shapes rather than pixels.
+  - `src/games/amoeba.rs` — and Amoeba's, which draws CP437 glyphs across
+    the whole window rather than the shared frame, and brings an on-screen
+    pad for phones.
 
 Adding a prototype is a `GameId` variant, a module under each half, and an
 arm in `games::load` and `games::emblem`. The library tests check the menu
-can reach every entry.
+can reach every entry. The whole checklist, and how to start a big game
+somewhere else instead, is in [docs/NEW_GAME.md](docs/NEW_GAME.md).
 
 ## Development
 
@@ -121,7 +177,9 @@ Serve the result: `python3 -m http.server --directory dist/web 8080`
 ### Advanced
 
 Benchmark: `cargo bench --bench sim_bench -- --quick` (and
-`--bench space_trucking_bench`)
+`--bench space_trucking_bench`, `--bench amoeba_bench`)
+
+Amoeba's whole-playthrough bots: `cargo test --release --lib amoeba -- --ignored`
 
 Space Trucking's performance budgets:
 `cargo test --release --test space_trucking_perf -- --ignored`
@@ -129,6 +187,10 @@ Space Trucking's performance budgets:
 Security audit: `cargo audit` (requires `cargo install cargo-audit`)
 
 Pre-commit hook: `git config core.hooksPath .githooks` (runs `cargo fmt`)
+
+Machine setup: `./scripts/cloud-setup.sh` installs all of the above, plus
+Blender and GIMP for making assets. It's written to be a Claude Code cloud
+environment's setup script; see [docs/CLOUD_SETUP.md](docs/CLOUD_SETUP.md).
 
 ## License
 

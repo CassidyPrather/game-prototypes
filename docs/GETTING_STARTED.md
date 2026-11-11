@@ -6,7 +6,7 @@ delusions (egui), things that are really a shader (wgpu). Pick early.
 
 ## Frameworks
 
-- [macroquad](https://macroquad.rs/) — the default; the raylib of Rust, clean wasm story, and what this template uses
+- [macroquad](https://macroquad.rs/) — the default; the raylib of Rust, clean wasm story, and what this repo uses
 - [egui / eframe](https://github.com/emilk/egui) — for spreadsheet-with-delusions toys (Aurora-likes); starter: [eframe_template](https://github.com/emilk/eframe_template)
 - [wgpu + WGSL](https://wgpu.rs/) — the "real" graphics path; learn it via [Learn wgpu](https://sotrh.github.io/learn-wgpu/)
 - [Bevy](https://bevy.org/) — the community's center of gravity; heavy for toys, but the port target if one outgrows macroquad
@@ -28,8 +28,9 @@ delusions (egui), things that are really a shader (wgpu). Pick early.
 
 ## Sounds
 
-The template starts with none of these: `src/synth.rs` generates its effects
-from arithmetic, which costs no payload and no credits line. Worth outgrowing
+No prototype here uses any of these yet: each synthesises its effects from
+arithmetic (a `synth.rs` or `sfx.rs` beside its sim), which costs no payload
+and no credits line. Worth outgrowing
 the moment a toy wants real sound design.
 
 - [freesound](https://freesound.org/) — filter to CC0
@@ -46,11 +47,14 @@ the moment a toy wants real sound design.
 - [Shadertoy](https://www.shadertoy.com/) — the ideal zero-setup shader-fidget environment
 - [The Book of Shaders](https://thebookofshaders.com/) — gentler on-ramp
 - [Red Blob Games](https://www.redblobgames.com/) — interactive explainers (pathfinding, hexes, procgen); also a model of the form
-- [Game Programming Patterns](https://gameprogrammingpatterns.com/) — the game loop and update method chapters are this template's theory
+- [Game Programming Patterns](https://gameprogrammingpatterns.com/) — the game loop and update method chapters are this repo's theory
 - [Fix Your Timestep](https://gafferongames.com/post/fix_your_timestep/) — why `sim.advance()` looks the way it does
 
 ## Design Reference
 
+- [wirenook.net](https://wirenook.net/llms.txt) — Cassidy's own reviews and
+  essays, and the first stop for what *these* games should be like; see
+  [the README's Taste section](../README.md#taste)
 - [Juice it or lose it](https://www.youtube.com/watch?v=Fy0aCDmgnxg) — why fidgets feel good
 - [The Art of Screenshake](https://www.youtube.com/watch?v=AJdEqssNZ-U) — ditto, angrier
 - [Grid Sage Games blog](https://www.gridsagegames.com/blog/) — Josh Ge; the open-devlog ethos
@@ -59,7 +63,8 @@ the moment a toy wants real sound design.
 
 ## Ecosystem Hooks
 
-Not in the template. Add per toy.
+Not in the shared shell. Add per game; Space Trucking already pulls in
+quad-storage.
 
 - [quad-storage](https://github.com/optozorax/quad-storage) — localStorage persistence; background-tick toys compute elapsed time on load, no server needed
 - [quad-url](https://github.com/optozorax/quad-url) — URL params, so seeds become shareable links

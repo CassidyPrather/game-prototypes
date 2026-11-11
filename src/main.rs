@@ -86,7 +86,10 @@ async fn main() {
 
         // Leaving is checked before ticking, so the frame a player presses
         // Escape on is the last one the prototype sees.
-        if playing && is_key_pressed(KeyCode::Escape) {
+        let escape_is_ours = running
+            .as_ref()
+            .is_none_or(|(_, game)| !game.wants_escape());
+        if playing && escape_is_ours && is_key_pressed(KeyCode::Escape) {
             playing = false;
             revealing = None;
             if let Some((_, game)) = running.as_mut() {
