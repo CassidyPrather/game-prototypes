@@ -1,5 +1,5 @@
-//! The districts: the cavern GJ is played in, and the one every difficulty was
-//! played in before the warren.
+//! The districts: the cavern Normal and GJ are played in, and the one every
+//! difficulty was played in before the warren.
 //!
 //! It is the underside of a human city, and it is built the way one would be.
 //! The rock is cut into districts; a chamber is dissolved out of the middle of
@@ -8,16 +8,15 @@
 //! afterwards — there is no erosion pass and no pillars — so what comes out is
 //! big rooms joined by roads.
 //!
-//! That is a different game from the warren, which is why GJ keeps it. Two
+//! That is a different game from the warren. Two
 //! cells of street is a street a caravan cannot cork: whatever is standing in
 //! it, there is a lane past. The warren buys its geometry by taking that lane
 //! away, and pays for it with
 //! [`Sim::open_the_chokepoints`]; the
 //! districts never take it in the first place. What they give up for it is
 //! everything the warren's walls are for — a hall is where engulfing costs
-//! four organelles and a shot crosses the whole room — so GJ is a cavern to be
-//! crossed rather than one to be fought in, on the difficulty that already
-//! asks for every gate.
+//! four organelles and a shot crosses the whole room — so the districts are a
+//! cavern to be crossed rather than one to be fought in.
 
 use std::collections::VecDeque;
 

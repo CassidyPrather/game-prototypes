@@ -1,14 +1,13 @@
 //! Map generation.
 //!
 //! There are two caverns, and which one a run is played in is part of what a
-//! difficulty *is* — see [`CavernStyle`]. Normal and Easy are played in a
-//! [`warren`]: small chambers on a jittered lattice, passages that wander
-//! between one and two cells wide, and a pillar pass that leaves no cell of the
-//! map more than a step from rock. GJ is played in the [`classic`] districts:
-//! the rock cut into districts, a chamber dissolved out of the middle of each,
-//! and streets two cells wide between them. A warren is a cavern to fight in
-//! and the districts are a cavern to cross, and sixteen gates with no grace is
-//! a run that is mostly crossing.
+//! difficulty *is* — see [`CavernStyle`]. Easy is played in a [`warren`]:
+//! small chambers on a jittered lattice, passages that wander between one and
+//! two cells wide, and a pillar pass that leaves no cell of the map more than a
+//! step from rock. Normal and GJ are played in the [`classic`] districts: the
+//! rock cut into districts, a chamber dissolved out of the middle of each, and
+//! streets two cells wide between them. A warren is a cavern to fight in and
+//! the districts are a cavern to cross.
 //!
 //! Everything either of them hands back goes through the same rest of the
 //! generator, which is what this file is:
@@ -1166,6 +1165,12 @@ mod tests {
         sim
     }
 
+    /// A run under way in a warren, for the things only a warren promises.
+    /// Easy is the difficulty that is still played in one.
+    fn warren(seed: u64) -> Sim {
+        played_as(seed, Difficulty::Easy)
+    }
+
     /// How many cells filling one cell in would cut off from the largest piece
     /// of cavern left standing.
     ///
@@ -1297,7 +1302,7 @@ mod tests {
         // amoeba gets every fight on its own terms; too much of it and the
         // pillars have stopped meaning anything.
         for seed in 0..24 {
-            let sim = playing(seed);
+            let sim = warren(seed);
             let share = wide_open(&sim).len() * 100 / carved(&sim).len();
             assert!(
                 share >= 2,
@@ -1376,7 +1381,7 @@ mod tests {
         // two in an alcove. If that price is four almost everywhere then the
         // mechanic is decorative, so a good map is mostly cheaper than four.
         for seed in 0..16 {
-            let sim = playing(seed);
+            let sim = warren(seed);
             let open = carved(&sim);
             let cheap = open.iter().filter(|c| openings(&sim, **c) <= 2).count();
             let share = cheap * 100 / open.len();
@@ -1392,7 +1397,7 @@ mod tests {
         // Floor the amoeba never reaches is a walk, and floor it cannot move
         // through is a wall. The band is what a warren looks like from outside.
         for seed in 0..16 {
-            let sim = playing(seed);
+            let sim = warren(seed);
             let cells = (sim.grid().width() * sim.grid().height()).unsigned_abs() as usize;
             let share = carved(&sim).len() * 100 / cells;
             assert!(share > 25, "seed {seed}: only {share}% of the map is floor");
@@ -1405,7 +1410,7 @@ mod tests {
         // The other half of the same bargain: geometry only counts if sight
         // runs into it. A militia's diamond is forty-one cells; in a warren it
         // should be seeing well under all of them.
-        let sim = playing(9);
+        let sim = warren(9);
         let radius = Kind::Militia.stats().awareness;
         let open = carved(&sim);
         let full: usize = open
@@ -1666,7 +1671,7 @@ mod tests {
         // and before this there were maps where one of them could park in a
         // throat with half the cavern behind it. Now the most anybody can shut
         // away by standing in a doorway is a dead end.
-        for difficulty in [Difficulty::Normal, Difficulty::Easy] {
+        for difficulty in [Difficulty::Easy] {
             for seed in 0..12 {
                 let sim = played_as(seed, difficulty);
                 let (behind, at) = worst_cork(&sim);
@@ -1688,7 +1693,7 @@ mod tests {
         // what `the_warren_is_tight_and_the_galleries_are_not` holds, and the
         // single-file cells would be disappearing, which is this.
         for seed in 0..12 {
-            let sim = playing(seed);
+            let sim = warren(seed);
             let single_file = carved(&sim)
                 .into_iter()
                 .filter(|c| openings(&sim, *c) <= 2)
@@ -1702,29 +1707,31 @@ mod tests {
     }
 
     #[test]
-    fn gj_is_played_in_the_old_cavern() {
-        // GJ is the districts: chambers dissolved out of the rock and streets
+    fn normal_and_gj_are_played_in_the_old_cavern() {
+        // Normal and GJ are the districts: chambers dissolved out of the rock and streets
         // two cells wide between them, with no pillar pass to put a wall back
         // in the middle of anything. What that looks like from outside is a map
         // that is mostly floor and mostly floor you can stand in the middle of
         // — which is exactly what the warren is not.
         assert_eq!(Difficulty::Gj.cavern(), CavernStyle::Districts);
-        assert_eq!(Difficulty::Normal.cavern(), CavernStyle::Warren);
+        assert_eq!(Difficulty::Normal.cavern(), CavernStyle::Districts);
         assert_eq!(Difficulty::Easy.cavern(), CavernStyle::Warren);
-        for seed in 0..8 {
-            let sim = played_as(seed, Difficulty::Gj);
-            let cells = (sim.grid().width() * sim.grid().height()).unsigned_abs() as usize;
-            let floor = carved(&sim).len();
-            assert!(
-                floor * 100 / cells > 45,
-                "GJ seed {seed}: {}% floor is not the old open cavern",
-                floor * 100 / cells
-            );
-            let room = wide_open(&sim).len() * 100 / floor;
-            assert!(
-                room > 40,
-                "GJ seed {seed}: only {room}% of the floor has room to swing in"
-            );
+        for difficulty in [Difficulty::Normal, Difficulty::Gj] {
+            for seed in 0..8 {
+                let sim = played_as(seed, difficulty);
+                let cells = (sim.grid().width() * sim.grid().height()).unsigned_abs() as usize;
+                let floor = carved(&sim).len();
+                assert!(
+                    floor * 100 / cells > 45,
+                    "{difficulty:?} seed {seed}: {}% floor is not the old open cavern",
+                    floor * 100 / cells
+                );
+                let room = wide_open(&sim).len() * 100 / floor;
+                assert!(
+                    room > 40,
+                    "{difficulty:?} seed {seed}: only {room}% of the floor has room to swing in"
+                );
+            }
         }
     }
 
@@ -1752,7 +1759,8 @@ mod tests {
     #[test]
     fn every_chamber_is_somewhere_you_can_stand() {
         for (difficulty, fewest) in [
-            (Difficulty::Normal, warren::SITES_MIN),
+            (Difficulty::Easy, warren::SITES_MIN),
+            (Difficulty::Normal, classic::CHAMBERS_MIN),
             (Difficulty::Gj, classic::CHAMBERS_MIN),
         ] {
             for seed in 0..12 {

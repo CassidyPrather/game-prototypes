@@ -112,15 +112,17 @@ impl Difficulty {
 
     /// Which of the two cavern generators this difficulty is played in.
     ///
-    /// Normal and Easy are warrens. GJ keeps the districts the whole game used
-    /// to be played in: sixteen gates and no grace is a run that is mostly
-    /// walking between fights, and a warren asks the walk to be single file.
+    /// Easy is a warren. Normal and GJ are played in the districts the whole
+    /// game used to be played in: big rooms joined by two-cell streets, which
+    /// no single caravan can cork. GJ needs them most — sixteen gates and no
+    /// grace is a run that is mostly walking between fights, and a warren asks
+    /// the walk to be single file. Normal keeps its smaller 38 by 38 map.
     /// See [`mapgen::CavernStyle`].
     #[must_use]
     pub const fn cavern(self) -> CavernStyle {
         match self {
-            Self::Normal | Self::Easy => CavernStyle::Warren,
-            Self::Gj => CavernStyle::Districts,
+            Self::Easy => CavernStyle::Warren,
+            Self::Normal | Self::Gj => CavernStyle::Districts,
         }
     }
 
@@ -141,12 +143,12 @@ pub struct Rules {
     /// Map columns.
     ///
     /// DELIBERATE CHANGE from C# (§2), where every map was 64 by 48 because
-    /// that was as much as the console could show. A warren uses its cells —
-    /// see [`mapgen`] — so it needs fewer of them, and a smaller map is a
-    /// shorter walk between the things worth walking to. GJ is not a warren
-    /// (see [`Difficulty::cavern`]) and keeps the original's 64 by 48: an open
-    /// cavern needs the room, and half of what GJ is asking for is the
-    /// crossing.
+    /// that was as much as the console could show. Normal and Easy are played
+    /// on 38 by 38: a smaller map is a shorter walk between the things worth
+    /// walking to. GJ keeps the original's 64 by 48, because half of what GJ
+    /// asks for is the crossing. Normal is played in the districts on the
+    /// smaller map (see [`Difficulty::cavern`]), which still fits a 2 by 2 grid
+    /// of chambers.
     pub map_width: i32,
     /// Map rows.
     pub map_height: i32,
