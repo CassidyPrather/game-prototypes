@@ -900,7 +900,6 @@ fn drop_preview(g: &Game) {
     let Some(placed) = grid.get(c.id) else { return };
     let corner = g.hand.pos - c.grab + vec2(8.0, 8.0);
     let cell = ((corner - layout::HOLD) / layout::CELL).floor();
-    #[allow(clippy::cast_possible_truncation)]
     // Green if it fits, gold if it would swap with what is there, red if
     // neither: tried on a copy of the hold.
     #[allow(clippy::cast_possible_truncation)]
