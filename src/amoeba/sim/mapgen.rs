@@ -1,13 +1,14 @@
 //! Map generation.
 //!
-//! There are two caverns, and which one a run is played in is part of what a
-//! difficulty *is* — see [`CavernStyle`]. Easy is played in a [`warren`]:
-//! small chambers on a jittered lattice, passages that wander between one and
-//! two cells wide, and a pillar pass that leaves no cell of the map more than a
-//! step from rock. Normal and GJ are played in the [`classic`] districts: the
-//! rock cut into districts, a chamber dissolved out of the middle of each, and
-//! streets two cells wide between them. A warren is a cavern to fight in and
-//! the districts are a cavern to cross.
+//! There are three caverns, and which one a run is played in is part of what a
+//! difficulty *is* — see [`CavernStyle`]. Normal is played in the original
+//! 7DRL's [`boulders`]: an open box with blocks of rock dropped into it. Easy
+//! is played in a [`warren`]: small chambers on a jittered lattice, passages
+//! that wander between one and two cells wide, and a pillar pass that leaves no
+//! cell of the map more than a step from rock. GJ is played in the [`classic`]
+//! districts: the rock cut into districts, a chamber dissolved out of the
+//! middle of each, and streets two cells wide between them. A warren is a
+//! cavern to fight in; the field and the districts are caverns to cross.
 //!
 //! Everything either of them hands back goes through the same rest of the
 //! generator, which is what this file is:
@@ -21,7 +22,7 @@
 //!    doorway" tactic rests on, and everything downstream is careful not to
 //!    give it a second.
 //! 3. **Tighten the warren, and then let the air back in.** The erosion and the
-//!    pillars are the warren's own — the districts skip both — and
+//!    pillars are the warren's own — the other two skip both — and
 //!    [`Sim::open_the_chokepoints`] is what stops the tightening from going too
 //!    far. A throat is somewhere to meet a crowd on your terms; a throat that
 //!    is the *only* way between two halves of the cavern is a door, and the
@@ -50,13 +51,14 @@
 //! patrolling far from the gates" and "a plant growing where nobody goes" mean
 //! the same thing measured the same way.
 //!
-//! DELIBERATE CHANGE from C#, wholesale. The original filled an open box with
-//! twenty rectangular boulders and tunnelled between whatever got sealed off,
-//! then scattered every item by rejection sampling. That produced a map with no
-//! opinion about itself: nowhere was anywhere in particular, and nothing on the
-//! floor meant anything by being where it was. Two of the original's own bugs
-//! are gone with it — the unbounded gate search that could spin forever, and
-//! the elbow tunnel that never reached its far end and left pockets stranded.
+//! DELIBERATE CHANGE from C#. The original filled an open box with twenty
+//! rectangular boulders and tunnelled between whatever got sealed off, then
+//! scattered every item by rejection sampling. Normal keeps the boulders, but
+//! nothing after them: scattering produced a map with no opinion about itself,
+//! where nothing on the floor meant anything by being where it was. Two of the
+//! original's own bugs are gone with it — the unbounded gate search that could
+//! spin forever, and the elbow tunnel that never reached its far end and left
+//! pockets stranded.
 
 use std::collections::VecDeque;
 
@@ -66,15 +68,20 @@ use super::actors::{ActorId, ItemKind, Kind};
 use super::grid::{Coord, Dir, Grid, rand_inclusive, rand_index};
 use super::{Sim, actors};
 
+mod boulders;
 mod classic;
 mod warren;
 
-/// Which of the two generators lays a difficulty's cavern out.
+/// Which of the generators lays a difficulty's cavern out.
 ///
-/// Two, rather than one, because the map is the difficulty. A warren is a
-/// cavern the amoeba can fight in; the districts are a cavern it has to cross.
+/// More than one because the map is the difficulty. A warren is a cavern the
+/// amoeba can fight in; the field and the districts are caverns it has to
+/// cross.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum CavernStyle {
+    /// The original 7DRL's: an open box with blocks of rock dropped into it.
+    /// See [`boulders`].
+    Boulders,
     /// Small chambers on a jittered lattice, joined by passages that wander
     /// between one and two cells wide, tightened afterwards with erosion and
     /// pillars. See [`warren`].
@@ -222,6 +229,7 @@ impl Sim {
     fn try_generate(&mut self) -> bool {
         let style = self.difficulty.cavern();
         let Some(cavern) = (match style {
+            CavernStyle::Boulders => self.carve_boulders(),
             CavernStyle::Warren => self.carve_warren(),
             CavernStyle::Districts => self.carve_districts(),
         }) else {
@@ -1707,14 +1715,14 @@ mod tests {
     }
 
     #[test]
-    fn normal_and_gj_are_played_in_the_old_cavern() {
-        // Normal and GJ are the districts: chambers dissolved out of the rock and streets
-        // two cells wide between them, with no pillar pass to put a wall back
-        // in the middle of anything. What that looks like from outside is a map
-        // that is mostly floor and mostly floor you can stand in the middle of
-        // — which is exactly what the warren is not.
+    fn normal_and_gj_are_played_in_open_caverns() {
+        // Normal is the original's boulder field and GJ is the districts, and
+        // neither has a pillar pass to put a wall back in the middle of
+        // anything. What that looks like from outside is a map that is mostly
+        // floor and mostly floor you can stand in the middle of — which is
+        // exactly what the warren is not.
         assert_eq!(Difficulty::Gj.cavern(), CavernStyle::Districts);
-        assert_eq!(Difficulty::Normal.cavern(), CavernStyle::Districts);
+        assert_eq!(Difficulty::Normal.cavern(), CavernStyle::Boulders);
         assert_eq!(Difficulty::Easy.cavern(), CavernStyle::Warren);
         for difficulty in [Difficulty::Normal, Difficulty::Gj] {
             for seed in 0..8 {
@@ -1760,7 +1768,7 @@ mod tests {
     fn every_chamber_is_somewhere_you_can_stand() {
         for (difficulty, fewest) in [
             (Difficulty::Easy, warren::SITES_MIN),
-            (Difficulty::Normal, classic::CHAMBERS_MIN),
+            (Difficulty::Normal, boulders::HUBS_MIN),
             (Difficulty::Gj, classic::CHAMBERS_MIN),
         ] {
             for seed in 0..12 {

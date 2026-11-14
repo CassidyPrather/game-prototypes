@@ -78,8 +78,8 @@ impl Difficulty {
     pub const fn rules(self) -> Rules {
         match self {
             Self::Normal => Rules {
-                map_width: 38,
-                map_height: 38,
+                map_width: 48,
+                map_height: 48,
                 spawn_rate: 50,
                 evolution_rate: 6,
                 max_budget: 5,
@@ -112,17 +112,18 @@ impl Difficulty {
 
     /// Which of the two cavern generators this difficulty is played in.
     ///
-    /// Easy is a warren. Normal and GJ are played in the districts the whole
-    /// game used to be played in: big rooms joined by two-cell streets, which
-    /// no single caravan can cork. GJ needs them most — sixteen gates and no
-    /// grace is a run that is mostly walking between fights, and a warren asks
-    /// the walk to be single file. Normal keeps its smaller 38 by 38 map.
+    /// Normal is the original 7DRL's boulder field, on its 48 by 48, so it
+    /// feels like that game. Easy is a warren. GJ is played in the districts:
+    /// big rooms joined by two-cell streets, which no single caravan can cork —
+    /// sixteen gates and no grace is a run that is mostly walking between
+    /// fights, and a warren asks the walk to be single file.
     /// See [`mapgen::CavernStyle`].
     #[must_use]
     pub const fn cavern(self) -> CavernStyle {
         match self {
+            Self::Normal => CavernStyle::Boulders,
             Self::Easy => CavernStyle::Warren,
-            Self::Normal | Self::Gj => CavernStyle::Districts,
+            Self::Gj => CavernStyle::Districts,
         }
     }
 
@@ -142,13 +143,13 @@ impl Difficulty {
 pub struct Rules {
     /// Map columns.
     ///
-    /// DELIBERATE CHANGE from C# (§2), where every map was 64 by 48 because
-    /// that was as much as the console could show. Normal and Easy are played
-    /// on 38 by 38: a smaller map is a shorter walk between the things worth
-    /// walking to. GJ keeps the original's 64 by 48, because half of what GJ
-    /// asks for is the crossing. Normal is played in the districts on the
-    /// smaller map (see [`Difficulty::cavern`]), which still fits a 2 by 2 grid
-    /// of chambers.
+    /// Normal and GJ keep the original 7DRL's sizes, 48 by 48 and 64 by 48,
+    /// and both are played in open caverns (see [`Difficulty::cavern`]).
+    ///
+    /// DELIBERATE CHANGE from C# (§2) on Easy only, which the original also
+    /// played on 48 by 48. Easy is a warren, and a warren uses its cells — see
+    /// [`mapgen`] — so it needs fewer of them; 38 by 38 is a shorter walk
+    /// between the things worth walking to.
     pub map_width: i32,
     /// Map rows.
     pub map_height: i32,
@@ -1301,7 +1302,7 @@ mod tests {
     #[test]
     fn difficulty_tables_match_the_spec() {
         let normal = Difficulty::Normal.rules();
-        assert_eq!((normal.map_width, normal.map_height), (38, 38));
+        assert_eq!((normal.map_width, normal.map_height), (48, 48));
         assert_eq!(normal.cities_required(), 8);
         let easy = Difficulty::Easy.rules();
         assert_eq!(easy.spawn_rate, 75);
@@ -2038,7 +2039,7 @@ mod tests {
         for frame in 0..24 {
             sim.advance(Some(Command::Wait));
             let view = sim.view(frame);
-            assert_eq!(view.cells.len(), 38 * 38);
+            assert_eq!(view.cells.len(), 48 * 48);
         }
     }
 }

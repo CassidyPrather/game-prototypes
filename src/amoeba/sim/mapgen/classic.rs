@@ -1,5 +1,5 @@
-//! The districts: the cavern Normal and GJ are played in, and the one every
-//! difficulty was played in before the warren.
+//! The districts: the cavern GJ is played in, and the one every difficulty
+//! was played in before the warren.
 //!
 //! It is the underside of a human city, and it is built the way one would be.
 //! The rock is cut into districts; a chamber is dissolved out of the middle of

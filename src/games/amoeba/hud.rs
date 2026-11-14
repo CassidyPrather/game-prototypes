@@ -30,8 +30,8 @@ const ENTRY_ROW: i32 = 8;
 
 /// Below this many columns the key hints have to be abbreviated.
 ///
-/// The panel is as wide as the map, and the maps are 38 columns on Normal and
-/// Easy and 64 on GJ, so this is the line between the two of them.
+/// The panel is as wide as the map, and the maps are 38 columns on Easy, 48 on
+/// Normal and 64 on GJ, so only Easy gets the abbreviated hints.
 const WIDE_HINT_COLS: i32 = 46;
 
 /// The message bar: the log, or a description of whatever has your attention.
@@ -409,9 +409,8 @@ fn fill_cols(fraction: f32) -> i32 {
 
 /// The hints for whatever mode is open, abbreviated on a narrow panel.
 ///
-/// Every one of these has to fit the map it is drawn under, and the default
-/// difficulty's map is 38 columns wide — so the narrow tier, not the wide one,
-/// is what most players read, and it has thirty-six characters to say
+/// Every one of these has to fit the map it is drawn under, and Easy's map is
+/// 38 columns wide — so the narrow tier has thirty-six characters to say
 /// everything in. `S settings` earns ten of them in every keyboard tier: it is
 /// the only way to find the panel that turns any of this off. What gets cut
 /// first is whatever the player has already found out by pressing it — nobody
@@ -652,8 +651,8 @@ mod tests {
     fn every_hint_fits_the_panel_it_is_drawn_under() {
         // Nothing here can be checked by eye in CI, so check the arithmetic:
         // the panel is as wide as the map, and the default difficulty's map is
-        // 38 columns — the wide tier only gets more room on GJ's 64.
-        for (cols, budget) in [(38, 36_usize), (64, 62)] {
+        // 48 columns, Easy's 38 and GJ's 64.
+        for (cols, budget) in [(38, 36_usize), (48, 46), (64, 62)] {
             for mode in MODES {
                 for phase in [Phase::Playing, Phase::GameOver { won: true }] {
                     for touch in [false, true] {

@@ -661,9 +661,9 @@ mod tests {
     fn the_view_covers_the_whole_map() {
         let sim = playing(1);
         let view = sim.view(0);
-        assert_eq!(view.width, 38);
-        assert_eq!(view.height, 38);
-        assert_eq!(view.cells.len(), 38 * 38);
+        assert_eq!(view.width, 48);
+        assert_eq!(view.height, 48);
+        assert_eq!(view.cells.len(), 48 * 48);
     }
 
     #[test]
