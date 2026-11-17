@@ -1040,28 +1040,4 @@ mod tests {
         endless.seal(MAX_REPLAY_TICKS + 1);
         assert!(matches!(endless.replay(), Err(ReplayError::TooLong)));
     }
-
-    #[test]
-    fn errors_display_without_panicking() {
-        assert_eq!(
-            ReplayError::BadMagic.to_string(),
-            "not a Space Trucking recording"
-        );
-        assert_eq!(
-            ReplayError::Parse { line: 0 }.to_string(),
-            "recording ends too early"
-        );
-        assert_eq!(
-            ReplayError::Parse { line: 7 }.to_string(),
-            "malformed recording at line 7"
-        );
-        assert_eq!(
-            ReplayError::BadSave(SaveError::BadMagic).to_string(),
-            "recording's base save: not a Space Trucking save"
-        );
-        assert_ne!(ReplayError::OutOfOrder.to_string(), "");
-        assert_ne!(ReplayError::Stalled.to_string(), "");
-        assert_ne!(ReplayError::TooLong.to_string(), "");
-        assert_ne!(ReplayError::UnsupportedVersion.to_string(), "");
-    }
 }

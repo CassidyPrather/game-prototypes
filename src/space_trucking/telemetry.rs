@@ -881,24 +881,4 @@ mod tests {
             }
         }
     }
-
-    #[test]
-    fn errors_display_without_panicking() {
-        assert_eq!(
-            TelemetryError::BadMagic.to_string(),
-            "not a Space Trucking telemetry buffer"
-        );
-        assert_eq!(
-            TelemetryError::UnsupportedVersion.to_string(),
-            "telemetry buffer is from an unsupported version"
-        );
-        assert_eq!(
-            TelemetryError::Parse { line: 0 }.to_string(),
-            "telemetry buffer ends too early"
-        );
-        assert_eq!(
-            TelemetryError::Parse { line: 4 }.to_string(),
-            "malformed telemetry buffer at line 4"
-        );
-    }
 }

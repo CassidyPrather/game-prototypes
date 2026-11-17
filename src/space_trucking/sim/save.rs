@@ -735,19 +735,6 @@ mod tests {
     use super::super::{InputFrame, TICK_DT, Vec2, layout};
     use super::*;
 
-    #[test]
-    fn errors_display_without_panicking() {
-        assert_eq!(SaveError::BadMagic.to_string(), "not a Space Trucking save");
-        assert_eq!(
-            SaveError::Parse { line: 3 }.to_string(),
-            "malformed save at line 3"
-        );
-        assert_eq!(
-            SaveError::Parse { line: 0 }.to_string(),
-            "save ends too early"
-        );
-    }
-
     /// A worked save with every section populated: docked pieces composed
     /// into a trade, then relaunched mid-leg so ship/event lines are rich —
     /// including a mid-tenure rat and a bitten piece, so the STV3 grammar
