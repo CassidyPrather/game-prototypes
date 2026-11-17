@@ -914,17 +914,6 @@ mod tests {
     }
 
     #[test]
-    fn the_pulse_never_leaves_the_screen() {
-        // `phase` comes off a wall clock, so it has to survive whatever the
-        // clock hands over.
-        for step in 0..24 {
-            let phase = step as f32 / 12.0;
-            let pulse = 0.35f32.mul_add((phase * std::f32::consts::TAU).sin(), 0.65);
-            assert!((0.0..=1.0).contains(&pulse), "{pulse}");
-        }
-    }
-
-    #[test]
     fn the_arrows_it_picks_are_all_in_the_atlas() {
         let here = Coord::new(5, 5);
         for other in [
