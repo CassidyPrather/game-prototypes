@@ -17,6 +17,7 @@ it. Thirty seconds now versus archaeology later.
 | `web/audio.js` | quad-snd's miniquad audio plugin, vendored unmodified from the quad-snd 0.2.8 crate (`js/audio.js`) — <https://github.com/not-fl3/quad-snd> | not-fl3 and contributors | MIT OR Apache-2.0 | 2026-07 |
 | `web/sapp_jsutils.js` | sapp-jsutils' miniquad plugin, vendored unmodified from the sapp-jsutils 0.1.7 crate (`js/sapp_jsutils.js`) — <https://github.com/not-fl3/sapp-jsutils> | not-fl3 and contributors | MIT OR Apache-2.0 | 2026-08 |
 | `web/quad-storage.js` | quad-storage's miniquad plugin, vendored unmodified from the upstream repo's `js/quad-storage.js` at the quad-storage 0.1.3 release commit (`3760b95`; the published crate ships no js) — <https://github.com/optozorax/quad-storage> | Ilya Sheprut (optozorax) | MIT OR Apache-2.0 | 2026-08 |
+| `assets/windfall/*.ogg` | Windfall's twelve sounds: recordings from opengameart.org (dry-leaf rustles, bamboo swishes, impact blocks, metal and wood SFX, pop sounds, 100 CC0 SFX, bell dings, a kalimba, park ambiences), trimmed, filtered and re-encoded. Per-file source pages, original filenames and processing in `assets/windfall/SOURCES.md` — <https://opengameart.org/> | qubodup, StarNinjas, rubberduck, cogitollc, PWL, railkill, Thimras | CC0 | 2026-11 |
 
 The js files are copied verbatim so refreshing them after a `cargo update` is
 a straight `cp` out of `~/.cargo/registry/src/*/<crate>/` — except

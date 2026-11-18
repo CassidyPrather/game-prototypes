@@ -12,7 +12,7 @@ Code is AGPL-3.0-or-later. This repo replaced Cassidy's old game-template:
 new small games move in here, and new big games start from a gutted copy
 (`docs/NEW_GAME.md`).
 
-There are six prototypes. **Leitmotif**: a journey home whose rules are
+There are seven prototypes. **Leitmotif**: a journey home whose rules are
 set by its music — the current motif decides how the world behaves, each
 voice in the band drives a hazard, and holding the music holds everything it
 drives. **Sand Nomad**: a hand-made trading circuit of a dry ocean where
@@ -33,7 +33,11 @@ friendly. **Small Hours**: keep one fire lit through one night — shades walk
 to the nearest light, nobody can hurt them, and a keeper can only be nearer
 than the fire; when the hearth goes out the night is lived again beside the
 keeper you just were. Turn-based, eight hand-made nights, each with a proven
-par. None but Amoeba has any text, only icons and key caps (the menu
+par. **Windfall**: place vanes so a tree's falling leaves land in the
+baskets of their colours — every garden easy to win, the marks for few
+pieces and little wind (the Opus Magnum lesson); flip vanes turn after each
+leaf; eleven gardens with proven pars; the first prototype with recorded
+CC0 samples instead of synthesis. None but Amoeba has any text, only icons and key caps (the menu
 names its cards, and Space Trucking prints a version string in a corner);
 Amoeba is a roguelike, and its message log is the game.
 
@@ -310,6 +314,40 @@ Rules, the nights, why it is like this and what is not known:
 - It keeps the no-text rule, draws only through `Frame`, and touches no
   storage: marks last as long as the tab does.
 
+### Windfall
+
+Rules, marks, why it is like this and what is not known:
+`docs/WINDFALL.md`.
+
+- `src/windfall/garden.rs` — the rules. `Level` (hand-made, all `const`),
+  `Plan` (the player's pieces, fixed ones excluded), `Run` (`step` is one
+  tick; leaves move in drop order; `Cue`s out), `Marks`. A run only reads
+  the cells its leaves cross, which `Run::deciding_cells` exposes and the
+  solver relies on; keep that true if a new piece reads anything else.
+- `src/windfall/levels.rs` — the eleven gardens. Its tests are the balance
+  check: pieces pars proven minimal, wind pars the least found within one
+  piece of par (the last garden's proofs are `--ignored`; run them in
+  release), and no garden past the lessons won by random placement. Change
+  a garden or a rule and run them, then `examples/windfall_lab.rs`.
+- `src/windfall/solve.rs` — `fewest`, `gentlest`, `luck`.
+- `src/windfall/sound.rs` — the `Sample` per cue and its gain.
+- `src/games/windfall.rs` — input, playback (a tick every 0.34 s, or
+  0.085 s fast), cue reactions; `layout` is the one source of positions.
+  While building, `Preview` runs the plan to the end after every change so
+  `draw` can show each leaf's trail; keep the trails drawn from the rules,
+  never re-derived. `draw.rs` is the cut-paper look (palette at the top,
+  every shape a `paper` cut-out with a shadow); `audio.rs` embeds the
+  samples and loops the ambience.
+- It keeps the no-text rule, draws only through `Frame`, and touches no
+  storage.
+- **House rule it breaks:** "sounds are synthesised rather than loaded".
+  Cassidy's Small Hours reflection asked for a sample library over
+  synthetic noises, so Windfall embeds CC0 recordings from
+  `assets/windfall/` (sources and processing in `SOURCES.md` there, a row
+  in `CREDITS.md`). They are Ogg Vorbis, decoded by the browser on the web;
+  a sample that fails to decode is left silent rather than stopping the
+  load. They cost ~200 KB of the wasm budget, which was raised for them.
+
 ## Commands
 
 ```bash
@@ -335,6 +373,9 @@ cargo test --release --lib amoeba -- --ignored                # Amoeba's whole-p
 cargo bench --bench amoeba_bench -- --quick                   # ...and Amoeba's bench
 cargo test --lib small_hours                                  # Small Hours' rules, pars and sounds
 cargo run --release --example small_hours_lab                 # ...each night's par and a way to keep it
+cargo test --lib windfall                                     # Windfall's rules and pars
+cargo test --release --lib windfall -- --ignored              # ...and its slow proofs
+cargo run --release --example windfall_lab                    # ...each garden's par and the plans
 cargo audit                                                   # audit
 ./scripts/cloud-setup.sh                                      # provision a fresh machine (docs/CLOUD_SETUP.md)
 ```

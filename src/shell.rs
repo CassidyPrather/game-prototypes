@@ -28,17 +28,20 @@ pub enum GameId {
     Amoeba,
     /// One fire, one night, and nobody to keep it but yourself, again.
     SmallHours,
+    /// A tree's leaves, blown home by a few vanes.
+    Windfall,
 }
 
 impl GameId {
     /// Every prototype, in the order the menu lists them.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Leitmotif,
         Self::SandNomad,
         Self::SpaceTrucking,
         Self::KitchenGarden,
         Self::Amoeba,
         Self::SmallHours,
+        Self::Windfall,
     ];
 
     /// Display name, the one piece of text the menu shows.
@@ -51,6 +54,7 @@ impl GameId {
             Self::KitchenGarden => "Kitchen Garden",
             Self::Amoeba => "Amoeba",
             Self::SmallHours => "Small Hours",
+            Self::Windfall => "Windfall",
         }
     }
 
@@ -66,6 +70,7 @@ impl GameId {
             Self::KitchenGarden => "kitchen-garden",
             Self::Amoeba => "amoeba",
             Self::SmallHours => "small-hours",
+            Self::Windfall => "windfall",
         }
     }
 

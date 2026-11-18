@@ -77,6 +77,11 @@ prototype's own business; Leitmotif does it with `R`.
   nearer than the fire. When that is not enough, the night runs backward
   and you live it again beside the keeper you just were. Turn-based, eight
   short nights.
+- **[Windfall](docs/WINDFALL.md)** — blow a tree's leaves home with a few
+  vanes, each into the basket of its colour. Every garden is easy to win;
+  the marks are for winning with few pieces and little wind. A cut-paper
+  autumn garden, eleven gardens, and the collection's first recorded
+  (CC0) sounds.
 
 ## Taste
 
@@ -117,7 +122,8 @@ tagged so it also appears at
 | Space Trucking | `space-trucking` | [Space Trucking](https://wirenook.net/blog/reflections/space-trucking/) |
 | Kitchen Garden | `kitchen-garden` | [Kitchen Garden](https://wirenook.net/blog/reflections/kitchen-garden/) |
 | Amoeba Roguelike Remastered | `amoeba` | [AmoebaRL](https://wirenook.net/blog/reflections/amoeba/) |
-| Small Hours | `small-hours` | not yet written |
+| Small Hours | `small-hours` | [Small Hours](https://wirenook.net/blog/reflections/small-hours/) |
+| Windfall | `windfall` | not yet written |
 
 The slug is also the game's `GameId::slug` in `src/shell.rs`, which is what
 `?game=` reads. When a new one is published, link it here and at the top of
@@ -139,6 +145,8 @@ the game's doc.
     glyph per cell, and its synthesis.
   - `src/small_hours/` — Small Hours' rules, its eight nights, the
     exhaustive solver that proves each night's par, and its sounds.
+  - `src/windfall/` — Windfall's rules, its eleven gardens, the solver
+    that proves each garden's par, and which sample answers which cue.
 - `src/main.rs` — the shell's loop: the menu, or whichever prototype is
   running.
   - `src/ui.rs` — the letterboxed 800x600 frame and the drawing primitives
@@ -159,6 +167,9 @@ the game's doc.
     pad for phones.
   - `src/games/small_hours.rs` — and Small Hours', which paints the ground
     by whose light is nearest.
+  - `src/games/windfall.rs` — and Windfall's, a cut-paper diorama that
+    draws every leaf's future as a trail while you build, and plays CC0
+    recordings embedded from `assets/windfall/`.
 
 Adding a prototype is a `GameId` variant, a module under each half, and an
 arm in `games::load` and `games::emblem`. The library tests check the menu
@@ -206,6 +217,11 @@ Amoeba's whole-playthrough bots: `cargo test --release --lib amoeba -- --ignored
 
 Small Hours' workbench, each night's par and a way to keep it:
 `cargo run --release --example small_hours_lab`
+
+Windfall's garden lab, each garden's par and the plans that reach it, and
+its slow proofs:
+`cargo run --release --example windfall_lab`,
+`cargo test --release --lib windfall -- --ignored`
 
 Space Trucking's performance budgets:
 `cargo test --release --test space_trucking_perf -- --ignored`
