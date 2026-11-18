@@ -41,9 +41,10 @@ any match arm you miss.
    prototype here keeps: a seed and an input struct go in, the sim advances
    in fixed ticks (or one command per advance, if the game is turn-based),
    and drawable state plus `Cue`s come out. A `Cue` says what happened and
-   how hard, never what it should sound like. Sounds go in a `synth.rs` or
-   `sfx.rs` next to the sim, with the WAV header tests copied from one of
-   the others.
+   how hard, never what it should sound like. Sounds are recorded samples
+   under `assets/<game>/` with a `CREDITS.md` row (as Windfall's are), or
+   synthesised in a `synth.rs` or `sfx.rs` next to the sim with the WAV
+   header tests copied from one of the others.
 3. **The frontend half**: `src/games/<game>.rs` (and `src/games/<game>/`),
    declared in `src/games.rs`. It needs a `Game` with `load`, `update` and
    `draw`, plus `leave` if anything loops, `wants_escape` if the game

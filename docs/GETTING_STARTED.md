@@ -28,15 +28,18 @@ delusions (egui), things that are really a shader (wgpu). Pick early.
 
 ## Sounds
 
-No prototype here uses any of these yet: each synthesises its effects from
-arithmetic (a `synth.rs` or `sfx.rs` beside its sim), which costs no payload
-and no credits line. Worth outgrowing
-the moment a toy wants real sound design.
+Windfall uses CC0 recordings from opengameart.org (see
+`assets/windfall/SOURCES.md`); the older prototypes synthesise their effects
+in a `synth.rs` or `sfx.rs` beside the sim. A recording costs wasm payload and
+a `CREDITS.md` line. From a Claude Code cloud session, freesound.org and
+kenney.nl may be blocked by the network proxy while opengameart.org works.
+
+- [OpenGameArt](https://opengameart.org/) — filter to CC0, and check each page
 
 - [freesound](https://freesound.org/) — filter to CC0
 - [Sonniss GDC bundles](https://sonniss.com/gameaudiogdc) — royalty-free, enormous
 - [jsfxr](https://sfxr.me/) — generate retro SFX; perfect at toy scale
-- [musicdsp.org](https://www.musicdsp.org/) — the old archive of DSP snippets, if you keep synthesising instead
+- [musicdsp.org](https://www.musicdsp.org/) — the old archive of DSP snippets, for synthesis
 
 ## Fonts
 

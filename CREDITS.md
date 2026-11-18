@@ -35,6 +35,7 @@ them.)
 The sound effects themselves need no credit line — `src/leitmotif/synth.rs`,
 `src/shell/sfx.rs`, `src/sand_nomad/sfx.rs`, `src/space_trucking/synth.rs`,
 `src/kitchen_garden/sfx.rs` and `src/amoeba/synth.rs` generate them from
-arithmetic at startup, so there are no audio assets to track. Sand Nomad's pixel art is
+arithmetic at startup, so those prototypes have no audio assets to track.
+Windfall's recordings are the row above. Sand Nomad's pixel art is
 drawn by hand as data in `src/sand_nomad/art.rs`; the only borrowed part is
 the motif designs credited above.

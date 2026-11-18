@@ -340,13 +340,11 @@ Rules, marks, why it is like this and what is not known:
   samples and loops the ambience.
 - It keeps the no-text rule, draws only through `Frame`, and touches no
   storage.
-- **House rule it breaks:** "sounds are synthesised rather than loaded".
-  Cassidy's Small Hours reflection asked for a sample library over
-  synthetic noises, so Windfall embeds CC0 recordings from
-  `assets/windfall/` (sources and processing in `SOURCES.md` there, a row
-  in `CREDITS.md`). They are Ogg Vorbis, decoded by the browser on the web;
-  a sample that fails to decode is left silent rather than stopping the
-  load. They cost ~200 KB of the wasm budget, which was raised for them.
+- Its sounds are CC0 recordings embedded from `assets/windfall/` (sources
+  and processing in `SOURCES.md` there, a row in `CREDITS.md`). They are Ogg
+  Vorbis, decoded by the browser on the web; a sample that fails to decode
+  is left silent rather than stopping the load. They cost ~200 KB of the
+  wasm budget, which was raised for them.
 
 ## Commands
 
@@ -449,12 +447,12 @@ shrink the change or retune the budget deliberately, with a comment saying
 why.
 
 Audio is on: macroquad's `audio` feature plus quad-snd's `audio.js` plugin in
-`web/`, which must load after `gl.js` and before `load()` runs. Sounds are
-synthesised in `src/synth.rs` rather than loaded, so there are no audio assets
-and nothing to credit. macroquad gives you volume and looping and no pitch
-control, so every pitch an instrument plays is its own baked buffer;
-`mix::all_voices` is the list, built from the song. Add a note to a score
-and it bakes automatically; the tests check that nothing plays unbaked.
+`web/`, which must load after `gl.js` and before `load()` runs. A recorded
+sample is an asset like any other: it gets a `CREDITS.md` line at intake.
+macroquad gives you volume and looping and no pitch control, so every pitch
+an instrument plays is its own buffer. In Leitmotif, `mix::all_voices` is the
+list, built from the song; add a note to a score and it bakes automatically,
+and the tests check that nothing plays unbaked.
 
 No text on screen (Amoeba excepted, see above). If the HUD needs to say something, say it with a shape
 the world already uses, a colour, or a key cap with one character on it.
@@ -471,10 +469,11 @@ Browsers keep the audio context suspended until a real gesture. `audio.js`
 handles the resume, and the sim waits on the title screen for a first press
 before the song starts, so nothing tries to sound before it can.
 
-Two independent decoders read `synth`'s bytes — `audrey` natively and the
-browser's `decodeAudioData` on the web — and the web one reports failure by
-never calling back, which hangs macroquad's loader on a black screen. That is
-why `synth.rs` has header tests.
+Two independent decoders read every sound's bytes — `audrey` natively and
+the browser's `decodeAudioData` on the web — and the web one reports failure
+by never calling back, which hangs macroquad's loader on a black screen. That
+is why each `synth.rs` has header tests, and why Windfall's loader leaves out
+a sample that fails to decode rather than waiting on it.
 
 Space Trucking brought house rules of its own, which stand:
 
